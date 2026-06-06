@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 // SVG Icons
@@ -42,7 +43,7 @@ const pillars = [
   {
     title: 'Adaptive Assessment Paths',
     desc: "Dynamically shapes the quiz based on student accuracy, response speed, and topic mastery instead of static lists.",
-    badge: 'Personalized Speed',
+    badge: 'Personalized',
     color: 'border-emerald-500/20 text-emerald-400 bg-emerald-500/5'
   },
   {
@@ -53,6 +54,27 @@ const pillars = [
   }
 ]
 
+// ── Error reader (must be wrapped in Suspense because of useSearchParams) ────
+function ErrorFromUrl({ onError }: { onError: (msg: string) => void }) {
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const urlError = searchParams.get('error')
+    if (urlError === 'unauthorized_domain') {
+      onError('Access restricted. Only @vitstudent.ac.in and @vit.ac.in email addresses are allowed.')
+    } else if (urlError === 'auth_failed') {
+      onError('Authentication failed. Please try again.')
+    } else if (urlError === 'no_email') {
+      onError('Could not retrieve your email. Please try a different Google account.')
+    } else if (urlError === 'no_role') {
+      onError('Your account role could not be determined. Contact support.')
+    }
+  }, [searchParams, onError])
+
+  return null
+}
+
+// ── Main Login Page ──────────────────────────────────────────────────────────
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -87,18 +109,21 @@ export default function LoginPage() {
 
   return (
     <div className="relative min-h-screen lg:h-screen lg:max-h-screen lg:overflow-hidden flex flex-col justify-between selection:bg-indigo-500/30 selection:text-white px-4 sm:px-6 lg:px-8">
-      
+
+      {/* Read ?error= from URL — inside Suspense per Next.js 16 requirement */}
+      <Suspense fallback={null}>
+        <ErrorFromUrl onError={setError} />
+      </Suspense>
+
       {/* Background Orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/10 blur-[120px] animate-pulse-soft" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-cyan-500/10 blur-[120px] animate-pulse-soft" style={{ animationDelay: '2s' }} />
-        
-        {/* Grid mesh */}
         <div className="absolute inset-0 opacity-[0.015]"
           style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
       </div>
 
-      {/* Top Header / Navigation */}
+      {/* Header */}
       <header className="relative z-10 w-full max-w-7xl mx-auto py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shadow-lg shadow-indigo-500/5">
@@ -109,30 +134,27 @@ export default function LoginPage() {
             <span className="block text-[10px] text-slate-500 font-semibold tracking-widest uppercase">Cognition & Intelligence</span>
           </div>
         </div>
-        
-        <a 
-          href="https://github.com" 
-          target="_blank" 
-          rel="noopener noreferrer" 
+        <a
+          href="https://github.com"
+          target="_blank"
+          rel="noopener noreferrer"
           className="text-xs font-medium text-slate-400 hover:text-white transition-colors border border-slate-800/80 px-4 py-1.5 rounded-lg bg-slate-950/40 hover:bg-slate-950/80"
         >
           Documentation
         </a>
       </header>
 
-      {/* Main Grid Content */}
+      {/* Main Grid */}
       <main className="relative z-10 flex-1 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center py-6 lg:py-0">
-        
-        {/* Left column: Branding & Animated Presentation */}
+
+        {/* Left: Branding & Platform Pillars */}
         <div className="lg:col-span-7 flex flex-col justify-center text-left space-y-5 lg:space-y-6 max-w-2xl mx-auto lg:mx-0">
-          
-          {/* Badge */}
+
           <div className="inline-flex items-center gap-2 self-start px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 border border-indigo-500/20 text-indigo-300">
             <SparklesIcon />
             <span>AI-Powered Adaptive Assessment Ecosystem</span>
           </div>
 
-          {/* Heading */}
           <div className="space-y-3">
             <h1 className="text-3xl sm:text-4xl lg:text-4xl xl:text-5xl font-extrabold tracking-tight text-white font-display leading-[1.15]">
               Assess Smarter.{' '}
@@ -141,24 +163,20 @@ export default function LoginPage() {
               </span>
             </h1>
             <p className="text-sm sm:text-base text-slate-400 max-w-xl leading-relaxed">
-              Cognira transforms traditional static quizzes into personalized learning experiences. 
+              Cognira transforms traditional static quizzes into personalized learning experiences.
               By understanding educational resources and learner performance, it creates intelligent, adaptive assessments.
             </p>
           </div>
 
-          {/* Platform Core Pillars Grid */}
           <div className="space-y-3">
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-              Core Platform Architecture
-            </h3>
-            
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Core Platform Architecture</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {pillars.map((p, idx) => (
                 <div
                   key={p.title}
                   className={`p-3.5 rounded-xl border transition-all duration-300 text-left cursor-default ${
-                    idx === activePillar 
-                      ? `${p.color} shadow-lg shadow-indigo-500/5 scale-[1.015]` 
+                    idx === activePillar
+                      ? `${p.color} shadow-lg shadow-indigo-500/5 scale-[1.015]`
                       : 'border-slate-800/60 bg-slate-900/10 text-slate-500'
                   }`}
                 >
@@ -182,33 +200,24 @@ export default function LoginPage() {
 
         </div>
 
-        {/* Right column: Beautiful Centered Login Card */}
+        {/* Right: Login Card */}
         <div className="lg:col-span-5 flex items-center justify-center w-full max-w-md mx-auto lg:mx-0">
           <div className="w-full relative rounded-3xl p-6 sm:p-8 glass-effect glass-effect-hover shadow-2xl shadow-black/80">
-            
-            {/* Ambient card background glow */}
-            <div className="absolute -inset-px rounded-3xl bg-gradient-to-b from-indigo-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
-            {/* Logo/Icon */}
             <div className="flex flex-col items-center text-center mb-6">
               <div className="h-12 w-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center shadow-inner mb-3">
                 <LogoIcon />
               </div>
-              <h2 className="text-xl font-bold text-white font-display tracking-tight mb-1">
-                Sign in to Cognira
-              </h2>
-              <p className="text-[11px] text-slate-400">
-                Access your intelligent educational workspace
-              </p>
+              <h2 className="text-xl font-bold text-white font-display tracking-tight mb-1">Sign in to Cognira</h2>
+              <p className="text-[11px] text-slate-400">Only @vit.ac.in and @vitstudent.ac.in accounts are allowed</p>
             </div>
 
-            {/* Google Authentication */}
             <div className="space-y-5">
               <button
                 id="google-signin-btn"
                 onClick={handleGoogleLogin}
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-3 h-12 rounded-xl cursor-pointer font-semibold text-white text-xs bg-slate-900 border border-slate-800 hover:bg-slate-850 hover:border-slate-700 active:scale-[0.98] transition-all duration-200"
+                className="w-full flex items-center justify-center gap-3 h-12 rounded-xl cursor-pointer font-semibold text-white text-xs bg-slate-900 border border-slate-800 hover:bg-slate-850 hover:border-slate-700 active:scale-[0.98] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <span className="flex items-center gap-2 text-slate-400">
@@ -226,16 +235,14 @@ export default function LoginPage() {
                 )}
               </button>
 
-              {/* Error messages if any */}
               {error && (
                 <div className="p-3 rounded-xl border border-rose-500/20 bg-rose-500/10 text-[11px] text-rose-300 flex items-start gap-2">
-                  <span className="text-xs">⚠️</span>
+                  <span className="text-xs flex-shrink-0">⚠️</span>
                   <span className="leading-normal">{error}</span>
                 </div>
               )}
             </div>
 
-            {/* Terms and conditions link */}
             <div className="mt-6 pt-5 border-t border-slate-800/60 text-center">
               <p className="text-[10px] text-slate-500 leading-relaxed">
                 By entering, you agree to our{' '}
@@ -252,9 +259,7 @@ export default function LoginPage() {
 
       {/* Footer */}
       <footer className="relative z-10 w-full max-w-7xl mx-auto py-4 border-t border-slate-900/60 flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-slate-500">
-        <div>
-          &copy; {new Date().getFullYear()} Cognira Platform. All rights reserved.
-        </div>
+        <div>&copy; {new Date().getFullYear()} Cognira Platform. All rights reserved.</div>
         <div className="flex items-center gap-6">
           <a href="#" className="hover:text-slate-350 transition-colors">Privacy Policy</a>
           <a href="#" className="hover:text-slate-350 transition-colors">Terms of Service</a>

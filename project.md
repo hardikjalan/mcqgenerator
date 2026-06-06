@@ -20,6 +20,10 @@ Cognira is an AI-powered adaptive assessment platform designed to transform trad
 * **Environment Configuration:** Set up and configured [`.env.local`](file:///d:/MCQ%20GENERATOR/mcqgenerator/.env.local) with corrected base URL formats and standardized client variables (`NEXT_PUBLIC_SUPABASE_ANON_KEY`).
 * **Resilient Supabase Client:** Programmed [`lib/supabase/client.ts`](file:///d:/MCQ%20GENERATOR/mcqgenerator/lib/supabase/client.ts) to handle credentials gracefully, auto-filter trailing REST suffixes (like `/rest/v1/`), and support fallback naming schemas.
 * **Secure Route Handler callback:** Created [`app/auth/callback/route.ts`](file:///d:/MCQ%20GENERATOR/mcqgenerator/app/auth/callback/route.ts) to capture code exchange tokens (`?code=...`) from Google OAuth flow, write credentials to client cookies, and safely redirect the user into their dynamic dashboard.
+* **Explicit Email Lists & Admin Role:** Modified the authentication pipeline to support explicit email arrays for `admin`, `faculty`, and `student` roles, bypassing standard domain filters (e.g. mapping `hardikjalan2005@gmail.com` to `faculty` for developer testing).
+
+### 4. Middleware & Dynamic Security Proxy
+* **Dynamic Route Proxy:** Programmed [`proxy.ts`](file:///d:/MCQ%20GENERATOR/mcqgenerator/proxy.ts) (middleware) to dynamically enforce that authenticated users are only permitted to access dashboard routes prefixed by `/dashboard/${role}`, redirecting intruders instantly.
 
 ---
 
@@ -30,16 +34,27 @@ mcqgenerator/
 ├── app/
 │   ├── auth/
 │   │   └── callback/
-│   │       └── route.ts         # Secure server-side code exchange route
+│   │       └── route.ts         # Secure code exchange & role classification handler
 │   ├── dashboard/
-│   │   └── page.tsx             # Post-auth redirect landing page
+│   │   ├── admin/
+│   │   │   └── page.tsx         # Admin Dashboard placeholder with Command Center styling
+│   │   ├── faculty/
+│   │   │   └── page.tsx         # Faculty Dashboard placeholder
+│   │   ├── student/
+│   │   │   └── page.tsx         # Student Dashboard placeholder
+│   │   └── page.tsx             # Post-auth fallback landing page
 │   ├── globals.css              # Global styles, scrollbars, and keyframe animations
 │   ├── layout.tsx               # Injects fonts, layouts, and page SEO metadata
 │   └── page.tsx                 # Main visual landing page & login panel
 ├── lib/
 │   └── supabase/
 │       └── client.ts            # Resilient client browser instance helper
+├── supabase/
+│   ├── schema.sql               # Database schema definition (tables & roles)
+│   ├── policies.sql             # Row Level Security (RLS) policies
+│   └── triggers.sql             # Database triggers and function for signup automation
 ├── .env.local                   # Client API settings (not committed)
+├── proxy.ts                     # Next.js 16 Route Security Middleware Proxy
 ├── project.md                   # This project status & logging file
 └── package.json                 # Next.js 16, React 19 & Supabase packages
 ```
