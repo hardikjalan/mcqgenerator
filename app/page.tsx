@@ -69,7 +69,7 @@ function ErrorFromUrl({ onError }: { onError: (msg: string) => void }) {
     } else if (urlError === 'no_role') {
       onError('Your account role could not be determined. Contact support.')
     } else if (urlError === 'db_error') {
-      onError('A database sync error occurred. If you recently updated the codebase, please ensure triggers.sql and policies.sql have been run in your Supabase SQL Editor.')
+      onError('An error occurred while setting up your profile. Please try logging in again, or contact support if the issue persists.')
     }
   }, [searchParams, onError])
 
@@ -81,6 +81,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activePillar, setActivePillar] = useState(0)
+  const [modalContent, setModalContent] = useState<'terms' | 'privacy' | 'support' | null>(null)
 
   // Auto-highlight active platform features
   useEffect(() => {
@@ -136,14 +137,6 @@ export default function LoginPage() {
             <span className="block text-[10px] text-slate-500 font-semibold tracking-widest uppercase">Cognition & Intelligence</span>
           </div>
         </div>
-        <a
-          href="https://github.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs font-medium text-slate-400 hover:text-white transition-colors border border-slate-800/80 px-4 py-1.5 rounded-lg bg-slate-950/40 hover:bg-slate-950/80"
-        >
-          Documentation
-        </a>
       </header>
 
       {/* Main Grid */}
@@ -247,9 +240,19 @@ export default function LoginPage() {
             <div className="mt-6 pt-5 border-t border-slate-800/60 text-center">
               <p className="text-[10px] text-slate-500 leading-relaxed">
                 By entering, you agree to our{' '}
-                <a href="#" className="text-slate-400 hover:text-white underline underline-offset-2 transition-colors">Terms of Service</a>
+                <button
+                  onClick={() => setModalContent('terms')}
+                  className="text-slate-400 hover:text-white underline underline-offset-2 transition-colors cursor-pointer bg-transparent border-0 p-0"
+                >
+                  Terms of Service
+                </button>
                 {' '}and{' '}
-                <a href="#" className="text-slate-400 hover:text-white underline underline-offset-2 transition-colors">Privacy Policy</a>.
+                <button
+                  onClick={() => setModalContent('privacy')}
+                  className="text-slate-400 hover:text-white underline underline-offset-2 transition-colors cursor-pointer bg-transparent border-0 p-0"
+                >
+                  Privacy Policy
+                </button>.
               </p>
             </div>
 
@@ -262,11 +265,94 @@ export default function LoginPage() {
       <footer className="relative z-10 w-full max-w-7xl mx-auto py-4 border-t border-slate-900/60 flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-slate-500">
         <div>&copy; {new Date().getFullYear()} Cognira Platform. All rights reserved.</div>
         <div className="flex items-center gap-6">
-          <a href="#" className="hover:text-slate-350 transition-colors">Privacy Policy</a>
-          <a href="#" className="hover:text-slate-350 transition-colors">Terms of Service</a>
-          <a href="#" className="hover:text-slate-350 transition-colors">Contact Support</a>
+          <button
+            onClick={() => setModalContent('privacy')}
+            className="hover:text-slate-350 transition-colors cursor-pointer bg-transparent border-0 p-0"
+          >
+            Privacy Policy
+          </button>
+          <button
+            onClick={() => setModalContent('terms')}
+            className="hover:text-slate-350 transition-colors cursor-pointer bg-transparent border-0 p-0"
+          >
+            Terms of Service
+          </button>
+          <button
+            onClick={() => setModalContent('support')}
+            className="hover:text-slate-350 transition-colors cursor-pointer bg-transparent border-0 p-0"
+          >
+            Contact Support
+          </button>
         </div>
       </footer>
+
+      {/* Modal Overlay */}
+      {modalContent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+          <div className="relative w-full max-w-2xl max-h-[80vh] overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/90 shadow-2xl flex flex-col">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white font-display">
+                {modalContent === 'terms' && 'Terms of Service'}
+                {modalContent === 'privacy' && 'Privacy Policy'}
+                {modalContent === 'support' && 'Contact Support'}
+              </h3>
+              <button
+                onClick={() => setModalContent(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto flex-1 text-slate-300 text-xs sm:text-sm space-y-4 leading-relaxed">
+              {modalContent === 'terms' && (
+                <div className="space-y-4">
+                  <p><strong>1. Acceptance of Terms</strong><br />Welcome to Cognira. By accessing or using our AI-powered Adaptive Assessment Ecosystem, you agree to comply with and be bound by these Terms of Service.</p>
+                  <p><strong>2. Eligibility & Academic Use</strong><br />Access to Cognira is restricted to verified faculty, administrators, and students with active email addresses from VIT University (ending with <code>@vit.ac.in</code> or <code>@vitstudent.ac.in</code>). Registration or access using other email domains is strictly unauthorized.</p>
+                  <p><strong>3. User Accounts & Security</strong><br />You are responsible for safeguarding your authentication credentials. Any activity performed under your account is your responsibility. Please notify us immediately of any unauthorized breach.</p>
+                  <p><strong>4. Content Grounding & Uploads</strong><br />Users may upload course materials (such as lecture slides, PDFs, and documentation) for generating assessments. You retain ownership of uploaded content but grant the platform the necessary operational rights to parse, chunk, and index the text for RAG (Retrieval-Augmented Generation) services.</p>
+                  <p><strong>5. Limitation of Liability</strong><br />Cognira is an educational tool provided &quot;as is&quot; without warranties of any kind. We are not responsible for database query latencies, network disconnects, or evaluation score discrepancies.</p>
+                </div>
+              )}
+
+              {modalContent === 'privacy' && (
+                <div className="space-y-4">
+                  <p><strong>1. Information We Collect</strong><br />We collect Google identity metadata (name, email address, profile avatar) upon OAuth sign-in. We also store any course text materials uploaded and study logs generated during your usage of the ecosystem.</p>
+                  <p><strong>2. Usage of Collected Information</strong><br />Your data is solely used to verify your academic domain status, set your system access role (Faculty, Student, or Admin), tailor adaptive assessment feedback loops, and compile personal progress statistics.</p>
+                  <p><strong>3. Data Sharing & Privacy</strong><br />We do not share, sell, or disclose user data to external advertising services. All data is processed and stored securely inside authenticated databases hosted on Supabase.</p>
+                  <p><strong>4. Data Retention</strong><br />We retain academic profiles as long as your university enrollment or employment remains active. You can request deletion of account details and uploaded materials by sending an inquiry to support.</p>
+                </div>
+              )}
+
+              {modalContent === 'support' && (
+                <div className="space-y-4">
+                  <p>For account issues, role mapping updates, database connection issues, or domain authentication help, please reach out to our administration team:</p>
+                  <div className="p-4 rounded-2xl bg-slate-950/40 border border-slate-800 space-y-2 text-xs">
+                    <p><strong>Email Address:</strong> <a href="mailto:support@cognira.vit.ac.in" className="text-indigo-400 hover:underline">support@cognira.vit.ac.in</a></p>
+                    <p><strong>Office Hours:</strong> Monday – Friday, 9:00 AM – 5:00 PM</p>
+                    <p><strong>System Admin:</strong> Cognira Platform Development Group</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-slate-800 flex justify-end">
+              <button
+                onClick={() => setModalContent(null)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white font-semibold text-xs rounded-xl cursor-pointer transition-all duration-200"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )
