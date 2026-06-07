@@ -1,7 +1,10 @@
--- Cognira Database Triggers
--- Run this SECOND in your Supabase SQL Editor (requires schema.sql to be run first).
+-- Cognira Database Triggers & Functions
+-- Run this AFTER schema.sql in your Supabase SQL Editor.
 
--- 1. Create helper function to automatically link new signups into profiles
+-- ── Function 1: Auto-create profile on first signup ──────────────────────────
+-- Fires on INSERT into auth.users (via trigger below).
+-- Sets role based on email domain. COALESCE ensures an existing role
+-- is never overwritten if the user re-signs up (conflict on id).
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -21,16 +24,44 @@ BEGIN
     END
   )
   ON CONFLICT (id) DO UPDATE SET
-    email = EXCLUDED.email,
+    email     = EXCLUDED.email,
     full_name = EXCLUDED.full_name,
     avatar_url = EXCLUDED.avatar_url,
-    role = COALESCE(profiles.role, EXCLUDED.role);
+    role      = COALESCE(profiles.role, EXCLUDED.role);
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 2. Link helper function as an after-insert trigger on auth.users
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+
+-- ── Function 2: Metadata sync called by the auth callback ────────────────────
+-- SECURITY DEFINER → runs as DB owner, bypasses RLS and column-level privileges.
+--
+-- Role is NOT a parameter — it is owned exclusively by the handle_new_user trigger.
+-- This function only syncs non-sensitive metadata (name, avatar) on every login.
+-- The role column is intentionally absent from both INSERT and ON CONFLICT UPDATE.
+--
+-- To change a user's role for testing, run directly in the Supabase SQL Editor:
+--   UPDATE public.profiles SET role = 'faculty' WHERE email = 'you@example.com';
+CREATE OR REPLACE FUNCTION public.upsert_profile_on_login(
+  p_id        UUID,
+  p_email     TEXT,
+  p_full_name TEXT,
+  p_avatar    TEXT
+  -- no p_role: role is set once by the handle_new_user trigger, never by this function
+)
+RETURNS void AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, full_name, avatar_url)
+  VALUES (p_id, p_email, p_full_name, p_avatar)
+  ON CONFLICT (id) DO UPDATE SET
+    email      = EXCLUDED.email,
+    full_name  = EXCLUDED.full_name,
+    avatar_url = EXCLUDED.avatar_url;
+    -- role column deliberately absent — immutable after first assignment
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
