@@ -9,9 +9,7 @@ export async function proxy(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
+        getAll() { return request.cookies.getAll() },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({ request })
@@ -23,33 +21,39 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  // Refresh session (required to keep session alive with @supabase/ssr)
+  // Refresh session (required by @supabase/ssr to keep cookies alive)
   const { data: { user } } = await supabase.auth.getUser()
-
   const pathname = request.nextUrl.pathname
 
-  // ── Rule 1: Not logged in → redirect to login ────────────────────────────
-  if (!user && pathname.startsWith('/dashboard')) {
+  // ── Rule 1: Logged-out user → redirect to login ──────────────────────────
+  if (!user) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // ── Rule 2: Logged in → enforce role-based access ────────────────────────
-  if (user && pathname.startsWith('/dashboard')) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+  // ── Rule 2: Logged-in user — read their role ─────────────────────────────
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
 
-    const role = profile?.role
+  const role = profile?.role
 
-    // Role not set in DB yet → send to home with error
-    if (!role) {
-      await supabase.auth.signOut()
-      return NextResponse.redirect(new URL('/?error=no_role', request.url))
+  // ── Rule 3: No role yet → must complete onboarding ───────────────────────
+  if (!role) {
+    if (pathname !== '/onboarding') {
+      return NextResponse.redirect(new URL('/onboarding', request.url))
     }
+    return supabaseResponse
+  }
 
-    // Enforce role-specific path access
+  // ── Rule 4: Already onboarded → block /onboarding (go to dashboard) ──────
+  if (pathname === '/onboarding') {
+    return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url))
+  }
+
+  // ── Rule 5: Enforce role-specific dashboard access ────────────────────────
+  if (pathname.startsWith('/dashboard')) {
     const allowedPrefix = `/dashboard/${role}`
     if (!pathname.startsWith(allowedPrefix)) {
       return NextResponse.redirect(new URL(allowedPrefix, request.url))
@@ -59,7 +63,7 @@ export async function proxy(request: NextRequest) {
   return supabaseResponse
 }
 
-// Only run proxy on dashboard routes
+// Run proxy on dashboard and onboarding routes
 export const config = {
-  matcher: ['/dashboard/:path*'],
+  matcher: ['/dashboard/:path*', '/onboarding'],
 }

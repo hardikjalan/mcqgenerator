@@ -3,8 +3,8 @@
 
 -- ── Function 1: Auto-create profile on first signup ──────────────────────────
 -- Fires on INSERT into auth.users (via trigger below).
--- Sets role based on email domain. COALESCE ensures an existing role
--- is never overwritten if the user re-signs up (conflict on id).
+-- Role is always NULL here — it is chosen by the user in onboarding.
+-- ON CONFLICT preserves any existing role (safe for re-logins).
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -14,20 +14,13 @@ BEGIN
     new.email,
     new.raw_user_meta_data->>'full_name',
     new.raw_user_meta_data->>'avatar_url',
-    CASE
-      -- Developer override for testing
-      WHEN new.email = 'hardikjalan2005@gmail.com' THEN 'faculty'::user_role
-      -- Domain mapping
-      WHEN new.email LIKE '%@vit.ac.in' THEN 'faculty'::user_role
-      WHEN new.email LIKE '%@vitstudent.ac.in' THEN 'student'::user_role
-      ELSE NULL
-    END
+    NULL  -- role chosen during onboarding, never auto-assigned
   )
   ON CONFLICT (id) DO UPDATE SET
-    email     = EXCLUDED.email,
-    full_name = EXCLUDED.full_name,
-    avatar_url = EXCLUDED.avatar_url,
-    role      = COALESCE(profiles.role, EXCLUDED.role);
+    email      = EXCLUDED.email,
+    full_name  = EXCLUDED.full_name,
+    avatar_url = EXCLUDED.avatar_url;
+    -- role intentionally absent: preserves existing role on re-login
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

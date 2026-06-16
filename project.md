@@ -37,10 +37,17 @@ graph TD
 
 ### 1. Authentication & Role-Based Security Pipeline
 * Users register or sign in via Google OAuth.
-* The authentication callback (`app/auth/callback/route.ts`) maps the verified email against specific roles (`admin | faculty | student`) in the database.
-* The routing middleware (`proxy.ts`) acts as a secure route proxy, redirecting authenticated users to the correct folder path (`/dashboard/${role}`) and instantly blocking unauthorized cross-dashboard navigation.
+* The authentication callback (`app/auth/callback/route.ts`) exchanges the authorization code for a session and syncs the user's Google metadata (name, email, avatar) to the profiles table.
+* The routing middleware (`proxy.ts`) acts as a secure route proxy:
+  - If a user has no role assigned, they are forced to complete the onboarding process.
+  - If a user has a role assigned, any access to `/onboarding` is blocked and redirected to the appropriate dashboard.
+  - If an onboarded user attempts to navigate to a dashboard they do not belong to, they are immediately redirected back to their role-specific dashboard path (`/dashboard/${role}`).
 
-### 2. Document Ingestion & Quiz Configuration Workflow
+### 2. Onboarding Workflow
+* First-time users are redirected to `/onboarding` which presents a simple, high-fidelity dark glassmorphic role picker (Student or Teacher/Faculty).
+* Choosing a role updates their database profile via a secure RPC (`set_profile_role`) and immediately routes them to their dashboard.
+
+### 3. Document Ingestion & Quiz Configuration Workflow
 * **Tab Selection**: Faculty members choose between uploading reference files or pasting raw text notes (which must be at least 50 words).
 * **Validation**: Files are checked in the browser for allowed extensions (`.pdf`, `.docx`, `.pptx`, `.png`, `.jpg`, `.jpeg`) and file size limit (max 10 MB).
 * **Supabase File Upload**: Valid files are stored under `{userId}/{timestamp}_{randomString}.{ext}` inside the private `faculty-documents` storage bucket. An async progress state runs in the browser during upload. Deleting a file in the UI calls Supabase to delete it from the storage bucket.
@@ -57,10 +64,20 @@ graph TD
 * **Casing Route Fix**: Renamed directory routing to lowercase `/app/dashboard` to resolve filesystem casing routing bugs.
 * **Overlays**: Added theme-aligned interactive modals for Privacy Policy, Terms of Service, and Support.
 
-### Security & Authentication
+### Security, Authentication & Infrastructure
 * **Proxy Middleware**: Created `proxy.ts` to intercept user requests and dynamically secure paths.
 * **Google OAuth Callback**: Created `/auth/callback` token exchange with server-side database error logging to prevent raw error details from leaking via URLs.
-* **Role Mappings**: Configured explicit email checks for roles (e.g. mapping `hardikjalan2005@gmail.com` to `faculty` for dev/staging tests).
+* **Shared Supabase Server Client**: Created `lib/supabase/server.ts` to centralize cookies-aware Supabase server instance configuration, reducing boilerplates across Next.js Server Actions and Route Handlers.
+* **Centralized Types**: Consolidated all TypeScript models, Postgres enum mirrors, and RPC input shapes in `types/database.ts` as a single source of truth.
+* **Onboarding Flow**: Created `/onboarding` as a streamlined, single-screen role-selection flow (Student or Faculty) with custom SVG icons and transition animations, bypassing complex profile setups.
+
+### Database Schema & Security Policies
+* **Profile Role Triggers**: Fixed a bug where client onboarding role selections failed with `"role is immutable via client API"`. Dropped all blocking legacy triggers and implemented a secure `set_profile_role` database RPC with a `role IS NULL` check.
+* **Supabase Storage Integration**:
+  * Set up `faculty-documents` private bucket.
+  * Added `supabase/storage.sql` containing RLS policies to restrict CRUD access to the file owner (`auth.uid()`).
+  * Programmed progress states, file removal callbacks, and error reporting.
+
 
 ### Faculty Quiz Builder
 * **Split Layout Refactor**: Shifted from a cluttered split-pane design to a flowing single-column wizard for better readability.
@@ -93,7 +110,6 @@ graph TD
 * **Tailwind CSS v4**: Utility-first CSS using direct `@theme` styles. Avoids maintaining separate configuration files and keeps the style system portable.
 * **Supabase Server-Side Session Handling**: Handles session cookies, OAuth code exchanges, and database triggers out of the box, reducing backend security maintenance.
 * **Storage Path Isolation (`{userId}/{fileName}`)**: Namespacing files under user IDs ensures clean folder segregation on Supabase Storage and simplifies ownership validation in RLS.
-* **Browser-Side Upload Progress Animation**: Supabase JS client lacks native browser upload progress callbacks. We implemented a visual interval ticker that smoothly animates progress up to 85% until the Promise resolves, creating a responsive user experience.
 * **Elimination of Difficulty/Bloom's Taxonomies (Requested)**: Simplified the generator configuration variables to focus strictly on MCQ generation and reduce configuration fatigue.
 
 ---
@@ -121,6 +137,8 @@ mcqgenerator/
 │   │   │   └── page.tsx         # Faculty Dashboard main page & upload orchestrator
 │   │   └── student/
 │   │       └── page.tsx         # Student Dashboard placeholder
+│   ├── onboarding/
+│   │   └── page.tsx             # Streamlined role selection page (Student or Faculty)
 │   ├── globals.css              # Global styles, scrollbars, and keyframe animations
 │   ├── layout.tsx               # Injects fonts, layouts, and page SEO metadata
 │   └── page.tsx                 # Main visual landing page, login panel & policy modals
@@ -131,12 +149,16 @@ mcqgenerator/
 │       └── types.ts             # Shared typescript types, validation functions, & constants
 ├── lib/
 │   └── supabase/
-│       └── client.ts            # Resilient client browser instance helper
+│       ├── client.ts            # Resilient client browser instance helper
+│       └── server.ts            # Shared Next.js server Supabase client creator
+├── types/
+│   └── database.ts              # Centralized TypeScript types mirroring DB schemas and enums
 ├── supabase/
 │   ├── schema.sql               # Database schema definition (tables & roles)
 │   ├── policies.sql             # Row Level Security (RLS) policies
-│   ├── triggers.sql             # Database triggers and function for signup automation
-│   └── storage.sql              # Storage bucket RLS policies for faculty documents
+│   ├── triggers.sql             # Database triggers and functions for signup automation
+│   ├── storage.sql              # Storage bucket RLS policies for faculty documents
+│   └── onboarding.sql           # Onboarding column additions, RPC definition, and cleanup
 ├── .env.local                   # Client API settings (not committed)
 ├── proxy.ts                     # Next.js 16 Route Security Middleware Proxy
 └── package.json                 # Next.js 16, React 19 & Supabase packages
@@ -151,11 +173,20 @@ mcqgenerator/
 #### `public.profiles`
 Tracks authenticated user roles mapping directly from Supabase Auth.
 * `id` (uuid, Primary Key, references `auth.users.id`)
-* `name` (text, user's display name)
 * `email` (text, user's login email)
-* `role` (user_role enum: `'student' | 'faculty' | 'admin'`)
+* `full_name` (text, user's display name)
 * `avatar_url` (text, Google profile image link)
+* `role` (user_role enum: `'student' | 'faculty' | 'admin'`)
+* `institution` (text, user's institution/school name)
 * `created_at` (timestamp)
+
+#### Custom Postgres RPCs
+
+##### `upsert_profile_on_login(p_id, p_email, p_full_name, p_avatar)`
+* Automatically syncs Google metadata (avatar, name, email) into the profiles table on every callback authentication login. Excludes updating the `role` column to ensure role preservation.
+
+##### `set_profile_role(p_role, p_full_name, p_institution)`
+* Allows users to securely select their role and configure details (like institution) on onboarding. Restricts updates to once (applies `WHERE role IS NULL` condition).
 
 #### Storage Bucket: `faculty-documents`
 Private bucket. Access policies are stored in `supabase/storage.sql` and enforce:
@@ -175,6 +206,7 @@ Private bucket. Access policies are stored in `supabase/storage.sql` and enforce
 ### Bugs Log
 * **casing_error (Fixed)**: Dashboard router crash caused by upper/lowercase mismatch in directory folder. Fixed by renaming to `/app/dashboard`.
 * **label_typescript_error (Fixed)**: Compilation bug where `SectionLabel` component was passed an invalid parameter. Fixed by removing the parameter from all instances.
+* **role_immutability_conflict (Fixed)**: Client onboarding forms crashed due to a trigger attempting to block role mutation. Solved by dropping old triggers and routing updates through a secure `set_profile_role` database function.
 
 ### Current Blockers
 * *None.*

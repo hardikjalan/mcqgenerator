@@ -60,9 +60,7 @@ function ErrorFromUrl({ onError }: { onError: (msg: string) => void }) {
 
   useEffect(() => {
     const urlError = searchParams.get('error')
-    if (urlError === 'unauthorized_domain') {
-      onError('Access restricted. Only @vitstudent.ac.in and @vit.ac.in email addresses are allowed.')
-    } else if (urlError === 'auth_failed') {
+    if (urlError === 'auth_failed') {
       onError('Authentication failed. Please try again.')
     } else if (urlError === 'no_email') {
       onError('Could not retrieve your email. Please try a different Google account.')
@@ -203,7 +201,7 @@ export default function LoginPage() {
                 <LogoIcon />
               </div>
               <h2 className="text-xl font-bold text-white font-display tracking-tight mb-1">Sign in to Cognira</h2>
-              <p className="text-[11px] text-slate-400">Only @vit.ac.in and @vitstudent.ac.in accounts are allowed</p>
+              <p className="text-[11px] text-slate-400">Sign in with your Google account to get started</p>
             </div>
 
             <div className="space-y-5">
