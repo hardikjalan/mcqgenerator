@@ -1,0 +1,1579 @@
+A DEEP DIVE INTO AI-POWERED ADAPTIVE
+MCQ ASSESSMENT GENERATION BASED ON
+BLOOM’S TAXONOMY AND REAL-TIME
+STUDENT PERFORMANCE
+Umamaheshwari M (corresponding author), Hardik Jalan,
+Sharad Menon, Raunak Sawa, Rishabh Gupta
+Vellore Institute of Technology
+School of Computer Science and Engineering
+Vellore, Tamilnadu, India
+E-mail: umamaheshwari.m@vit.ac.in, hardik.jalan2023@vitstudent.ac.in,
+sharad.menon2023@vitstudent.ac.in, raunak.sawa2023@vitstudent.ac.in,
+guptarishabh.manish2023@vitstudent.ac.in
+Clinical Trial number: not applicable.
+Abstract This survey examines the recent developments in adaptive multiple-choice question (MCQ)
+assessment systems where the learner performance data is used to offer customized assessment. The re-
+search concentrates on the compatibility of adaptive assessments with Bloom taxonomy in matching
+questions with the answer to the questions and dynamically responding to the answers by the students.
+Automatic multiple-choice question generation, cognitive-level classification, bias detection and adap-
+tive difficulty adjustment are thoroughly reviewed in the literature. The results reveal that adaptive
+methods have the potential to enhance formative assessment tremendously through heightening the rele-
+vance of questions, facilitating fair treatment, and timely feedback. Nevertheless, the continuous issues
+related to the quality of questions, proper cognitive alignment, minimization of bias, and the credibility
+of instant feedback systems are also mentioned in the literature. Overall, this review offers substantial
+points of departure to the creation of effective and fair adaptive assessment systems by summarizing
+existing approaches and outlining the gaps in the research. Besides integrating the available literature
+in the adaptive assessment technologies, the research will also introduce a generalized and modular
+workflow system, which incorporates the content preprocessing, the alignment to the Bloom taxonomy,
+the adaptive sequencing, mitigation of bias, or feedback generation into a single architectural design.
+The framework is a loose outline that can be used by researchers to fit different fields of education and
+contexts of implementation.
+Keywords: AI-Powered Adaptive Assessment, Bloom’s Taxonomy, Dynamic Question Gen- eration,
+Cognitive Level Classification, Personalization, Intelligent Assessment Systems.
+1
+1
+Introduction
+AI testing has significantly revolutionized the view and activity of learning and assessment [42]. Modern
+educational practices are progressively incorporating AI-based algorithms to automatically create and
+remodel various multiple-choice questions (MCQs) according to cognitively accepted models like the
+Bloom Taxonomy [3]. This has substituted the stagnant test banks and manual grading by dynamic
+systems that can produce individualized tests as well as provide intelligent feedback that is dynamic and
+changes in real time based on the performance of a learner. With the evaluation of the goals oriented to
+the progressive levels of cognition, basic recall to higher-level reasoning, AI systems tend to encourage
+the student to gain new ideas instead of memorizing [53]. In addition, the development of generative
+models and natural language processing has made it possible to transform assessments into interactive,
+student-focused exercises that no longer distinguish between instruction and assessment [16].
+But, in conjunction with these developments, there is an increasing demand to use AI-generated
+questions to design questions, and this is a serious problem that quickly arises: the design of automat-
+ically generated MCQs is becoming obscurant. In contrast to the conventional test, which is carefully
+reviewed by the pedagogue, AI-generated questions can include unintentionally ambiguous linguistic
+statements, multiple possible answers, or redundant ones. These problems may mislead learners, im-
+precisely assess knowledge and violate the reliability of automated grading systems. This is even more
+pronounced in adaptive testing settings, where a wrong answer can be an indication of poor interpretation
+and not poor knowledge, which causes the system to scale the difficulty levels or learning trajectories,
+in the wrong way. In the long term, such errors can defraud the profile of learners, introduce cumulative
+error in learning and decline confidence in AI-based evaluation systems.
+Ambiguity is also directly related to bias detection and mitigation. Assessment systems based on AI
+might be prone to implicit biases due to differences in language, imbalances in training data used, or
+construct-irrelevant inquiries [67]. The unclear wording may prejudice the learners of different linguistic
+or cognitive experiences with disproportionate representation, which is why one may question the notion
+of fairness, inclusivity, and transparency. As a result, the current literature on the topic highlights the
+fact that ambiguity and bias should be identified, measured, and reduced as a system of study in order to
+make adaptive MCQ systems equitable, interpretable, and pedagogically valid [68].
+In order to mitigate these issues, it is important to develop a solid student engagement interface that
+will allow real time engagement between students and assessment system. A layer of this kind may
+dynamically track the performance trends, modify the level of difficulty and the level of clarity of the
+questions, and give practical feedback to aid in the learning process [18]. Teachers have the advantage of
+getting specific analytics that inform their teaching techniques and interventions and students automat-
+ically get feedback that lets them detect misunderstandings and deepen their conceptual understanding.
+Interactive AI-based assessment systems can increase the motivation of learners, their engagement, and
+long-term educational outcomes to a large extent when they are developed in a way that boosts their
+clarity and interpretability [25] [35].
+In this regard, the current work presents a new quiz-generation workflow architecture that is based
+on AI and represents the main contribution of this study. Instead of comparing the model performance or
+single tool performances, we introduce a more organized seven-layer workflow framework that system-
+2
+atically arranges the entire MCQ generation pipeline, such as the data acquisition and model selection
+processes and such like the ambiguity detection, bias reduction, evaluation, adaptive delivery, and feed-
+back optimization. On a case-by-case basis, we thoroughly examine the possible tools, models, as well
+as large language model (LLM) settings, summarizing their functionality, strengths, weaknesses, and
+trade-offs. The comparative information is given to help researchers to choose those components which
+suit their particular pedagogical and technical needs the most. Using the ability to combine all these
+opportunities into a single workflow, the current paper provides a practical and research-focused manual
+that can empower scholars and system designers to deploy powerful, interpretable, and superior AI-
+enabled MCQ generation systems. The proposed workflow is therefore considered to be a systematic
+decision support model that allows the researchers to be in a position of producing the best results with
+minimal ambiguity and bias in adaptive assessment settings.
+2
+Survey Methodology
+Figure 1 illustrates the general workflow of the adaptive AI-driven system for generating and assessing
+MCQs. The system follows a structured end-to-end architecture, beginning with learning material input
+and concluding with feedback and recommendation mechanisms. The architecture is organized into
+three major stages: (1) Input and Processing, (2) Question Generation and Validation, and (3) Adaptive
+Delivery and User Interaction.
+The workflow begins with the ingestion of learning materials, which undergo preprocessing before
+being transformed into multiple-choice questions using large language models. The generated questions
+are subsequently classified according to cognitive levels and evaluated for bias to ensure pedagogical
+alignment and fairness. Validated questions are then delivered through an adaptive engine that dynami-
+cally adjusts difficulty levels and topic coverage based on learner performance. The student interaction
+layer records responses, which drive continuous feedback and recommendation mechanisms.
+To synthesize findings from published literature on AI-based assessment, adaptive MCQ generation,
+Bloom’s Taxonomy classification, bias detection, intelligent tutoring systems, learning analytics, and
+computerized adaptive testing, this survey adopts a structured narrative review methodology aligned
+with the proposed workflow. Literature was retrieved using targeted keyword combinations from IEEE
+Xplore, ACM Digital Library, SpringerLink, ScienceDirect, Scopus, and Google Scholar. Backward
+and forward citation analysis was conducted to identify influential foundational studies and emerging
+research trends.
+The review first examines research related to learning content ingestion and preprocessing tech-
+niques, including data cleaning, normalization, feature extraction, and domain-sensitive representation,
+as these directly influence downstream semantic quality. It then evaluates studies on MCQ generation us-
+ing large language models, comparing proprietary and open-source generators in terms of linguistic co-
+herence, reasoning capability, scalability, and deployment constraints. Research on Bloom’s Taxonomy
+classification is analyzed, covering classical machine learning, deep learning, and transformer-based
+cognitive-level tagging approaches.
+Bias detection literature is also synthesized, including positional bias, anchoring bias, symbol-
+binding inconsistencies, distractor similarity bias, and mitigation strategies such as permutation diag-
+3
+nostics and debiasing frameworks. The survey further investigates adaptive question engines grounded
+in computerized adaptive testing models and deep knowledge tracing architectures, focusing on real-
+time difficulty adjustment and learner state estimation. Finally, student interaction systems, response
+analytics, and AI-driven feedback mechanisms are examined to evaluate personalization, interpretabil-
+ity, engagement, and pedagogical effectiveness across the assessment lifecycle.
+These components collectively form a linear yet interdependent system architecture in which each
+stage influences the performance of subsequent phases. The quality of preprocessing and content rep-
+resentation directly impacts semantic coherence and conceptual validity of generated MCQs. Cognitive
+classification ensures alignment with instructional objectives, while bias detection safeguards fairness
+and assessment integrity before deployment. The adaptive engine relies on validated and cognitively
+tagged items for informed sequencing decisions, and learner responses captured through the interaction
+layer provide performance signals that refine ongoing adaptation. Response analytics transform raw in-
+teraction data into interpretable learner metrics, which are then used to generate targeted feedback and
+recommendations. Together, these interconnected processes establish a closed-loop adaptive evaluation
+framework in which content quality, pedagogical alignment, fairness validation, adaptive sequencing,
+learner interaction, and personalized feedback operate as mutually reinforcing components of an inte-
+grated intelligent assessment system.
+4
+Figure 1: Workflow of the adaptive AI-driven MCQ assessment system
+5
+3
+Literature Review
+3.1
+Learning Content Input
+Mayer and Fiorella (2021) developed the cognitive theory of multimedia learning, showing that effective
+learning is achieved when students perform five key cognitive processes: selecting words and images
+that are relevant, organizing them into coherent models, and relating these models to prior knowledge.
+Their work indicates that presentations that integrate words and images in multimedia presentations
+produce better transfer test performance than those that are one modality in nature, with effect sizes
+ranging from 0.3 to 0.6 across a wide range of subject areas. The theoretical underpinning rests upon
+three basic assumptions: dual-channel processing of verbal and visual information, cognitive capacity
+as being limited, and active construction of mental representations as opposed to passive reception of
+information.
+Zou, Lambert, and Xie (2025) performed a thorough examination of learning in the 21st century
+that proved how technologies like Smart Sparrow and ALEKS use data analytics to design adaptive,
+learner-tailored paths that shift dynamically to meet the unique needs of individual students. Their work
+indicates that students using adaptive learning platforms in gateway math courses posted considerably
+higher pass rates and exhibited higher overall student engagement than similar students in traditional
+learning settings. The research highlights the fact that co-constructed peer-to-peer learning, using col-
+laborative digital tools such as Google Classroom, Microsoft Teams, and Padlet, allows for knowledge
+building with students generating higher quality assignments and higher levels of engagement with the
+course content.
+Diwan, Srinivasa, and Bhat (2023) present an AI-driven solution to generate "narrative fragments"–
+supportive learning materials strategically placed along learning paths to maintain motivation and so-
+lidify key concepts. The system uses natural language processing and machine learning to monitor
+learner success, identify knowledge gaps, and generate context-aware micro-content that supports pri-
+mary learning achievements.Empirical research proved that students exposed to the AI-augmented learn-
+ing system recorded 23% superior performance on assessment tasks and 31% increased engagement
+rates when compared to control groups, proving that AI-powered content creation is a feasible solution
+to the scalability issues of personalized education.
+Bankar et al. (2023) offer a holistic review of e-content development in medical education, un-
+derlining the central role digital learning materials play in healthcare education environments. The
+study proves that well-crafted e-content really does make a difference in student participation and learn-
+ing outcomes, as medical students utilizing structured e-content modules score 18% higher on clinical
+exams than students taught by traditional lecture-based method. Essential features of effective medi-
+cal e-content include interactive multimedia components mimicking clinical presentations, case-based
+learning activities building diagnostic reasoning ability, virtual patient simulations offering a safe prac-
+tice space, and adaptive assessment tools that detect knowledge deficits to be remediated.
+Maity and Deroy (2024) investigated the integration of Generative AI, particularly large language
+models like GPT-4, into Intelligent Tutoring Systems to enhance personalized education through dy-
+namic content generation, real-time feedback, and adaptive learning pathways. Their research explores
+6
+key applications including automated question generation, customized feedback mechanisms, and inter-
+active dialogue systems that respond to individual learner needs. The study demonstrates that generative
+AI enables highly personalized and adaptive learning environments, with automated systems capable of
+creating diverse educational resources tailored to individual learning paces and styles, though challenges
+remain in ensuring pedagogical accuracy and mitigating inherent biases in AI models.
+3.2
+Content Preprocessing
+Rahhali, Oughdir, and El Khattabi (2024) conduct a thorough review of preprocessing methods for
+education big data, highlighting that preprocessing is an essential process that heavily influences the
+accuracy and reliability of learning analytics outcomes. The research divides preprocessing methods
+into three broad categories: data cleaning (giving irrelevant data a miss, correcting mistakes, dealing
+with missing values), data transformation (transforming data into appropriate forms), and data reduc-
+tion (dimension reduction without sacrificing essential information). Research demonstrates that proper
+preprocessing can improve educational analytics accuracy by 20-30% compared to raw data analysis,
+underscoring the fundamental significance of this often-overlooked stage in the analytics pipeline.
+Amrieh, Hamtini, and Aljarah (2016) introduced a comprehensive student performance prediction
+model incorporating behavioral features captured through Experience API (xAPI) from the Kalboard
+360 e-learning system. Their research categorized features into demographic, academic background, and
+behavioral categories, with behavioral features representing learner experiences during the educational
+process. When three classification methods (Artificial Neural Networks, Naïve Bayes, and Decision
+Trees) were applied, the inclusion of properly preprocessed behavioral features achieved remarkable
+improvements: ANN showed 25-29% accuracy improvement, Naïve Bayes achieved 22% improvement,
+and Decision Tree demonstrated 6-7% improvement, revealing that feature choice and preprocessing
+quality can have effects comparable to or exceeding algorithm selection.
+Križani´c (2020) demonstrated the critical role of content preprocessing through a comprehensive
+case study analyzing event logs from an e-learning course. Event logs were cleansed, transformed,
+and grouped to model student behavior effectively, with preprocessing steps including data cleaning,
+transformation, and partitioning—all crucial for revealing meaningful patterns in educational data. The
+study applied k-means cluster analysis to classify students according to learning patterns, then decision
+tree analysis for predictive outcomes. Well-preprocessed data enabled precise prediction of student
+performance and identification of risk groups, facilitating timely adaptive interventions.
+Romero and Ventura (2020) conducted a comprehensive survey on educational data mining, high-
+lighting the critical importance of data preprocessing as a foundational step for effective knowledge
+discovery in educational datasets. Their research emphasizes that educational data presents unique pre-
+processing challenges including high dimensionality, class imbalance, temporal dependencies, and the
+need for domain-specific feature engineering. The study demonstrates that successful educational data
+mining applications systematically address data quality issues through careful preprocessing, with tech-
+niques including outlier detection, feature selection, dimensionality reduction, and temporal aggregation
+proving essential for extracting actionable insights from learning management system logs and student
+interaction data.
+Shahiri, Husain, and Rashid (2015) investigated data preprocessing techniques for predicting stu-
+7
+dent performance using machine learning algorithms, emphasizing the impact of feature selection and
+engineering on prediction accuracy. Their research applied various preprocessing methods including
+handling missing values, feature normalization, and feature selection using correlation-based techniques
+to educational datasets containing student demographic, academic, and behavioral information. The
+study demonstrated that careful preprocessing and feature engineering improved prediction accuracy by
+15-20%, with feature selection algorithms successfully identifying the most predictive attributes while
+reducing computational complexity and avoiding overfitting in student performance models.
+3.3
+MCQ Generator using LLMs
+Al-gburi (2025) introduces APUOPE-RE, an adaptive quiz generator model designed especially for re-
+quirements engineering learning resources that dynamically modifies question difficulty based on each
+learner’s performance. Using a four-stage architecture that includes retrieval and mapping of lecture
+content into databases, prompt engineering and item generation by LLaMA 2-13B with specified output
+and checking rules, structural checking of generated items, and automated answer checking with in-
+stantaneous feedback, the system generates single-choice and true/false questions and SCQs. By giving
+harder questions for correct responses and easier ones for incorrect ones, a dynamic difficulty mod-
+ule assesses user response patterns and modifies learning progress. Additionally, the system displays
+user performance graphically in the form of interactive graphs that monitor improvement pathways over
+time, allowing for ongoing incentive and self-evaluation. The architecture achieves a balance between
+question type, complexity, and context of relevance through iterative tuning, and additional control
+mechanisms are added to stabilise LLM non-determinism and improve output consistency. However,
+the framework’s application to other fields is still lacking, and its scope is currently limited to require-
+ments engineering. Concerns about the consistency of its measuring standards also include the use of
+subjective user-based performance measures and the absence of strict validation methods for content
+produced using LLM. Despite these drawbacks, APUOPE-RE is an organised combination of adaptive
+learning principles and test design based on LLM that reflects the potential of AI systems in assessing
+personalised education.
+Biancini et al. (2024) compared three large language models: Llama 2, Mistral, and GPT-3.5; to
+generate multiple-choice questions (MCQs) in schools with emphasis on knowledge injection to re-
+duce hallucinations. In order to allow teachers to have control over content correctness and conform
+to source material, the information was included within the prompts themselves instead of relying on
+internal model knowledge. High school-level items must be developed by the models employing the
+same source quotation, question-and-option format, and correct option with explanation. Five important
+characteristics along which the assessment was performed were learning usefulness, response coherence
+and accuracy, quality of distractors, alignment with source, and design clarity. Substantial differences
+in performance were observed with a non-parametric Friedman test, where GPT-3.5 performed better
+than Llama 2 and Mistral in all but two areas. While anchoring generation to provided content boosted
+factual reliability and transparency, it also placed pragmatic constraints. The process restricted au-
+tomation and scalability with enormous data since it involved teacher engagement and human-designed
+reminders. Generalisability of the findings was hindered by the study’s exceptional topic and limited
+sample size, and the teachers’ understanding of acceptability was undermined by not receiving demo-
+8
+graphic data. Additionally, application of textual quotes at times undermined contextual knowledge,
+and unavailability of human-derived baselines made it hard to establish the real instructional value of
+generated multiple-choice questions.
+Sahu et al. (2023) explain transformer-based models, i.e., GPT and BERT, for automatically gener-
+ating multiple-choice questions (MCQs) with emphasis on system design and evaluation strategy. Their
+method uses automated grammar checkers, reading comprehension systems, and reasoning-based diffi-
+culty predictions to evaluate generated questions on four main dimensions: grammaticality, answerabil-
+ity, diversity, and complexity. BERT generates semantically identical distractors that are highly relevant
+to the right answer by using masked language modelling to forecast omitted tokens in text. On the other
+hand, GPT-3, which was trained on text-question pairings, generates complete question-answer pairs in a
+single generative phase by performing end-to-end MCQ production. In order to provide coherent, varied,
+and contextually authentic assessments, the research also explores hybrid techniques that combine the
+generative expressiveness of GPT with the bidirectional contextual sense of BERT. Combining comple-
+mentary transformer strengths raises a number of technical and practical challenges while maintaining
+grammatical accuracy and contextual validity. Scalability and sustainability may be hampered by the
+massive processing resources required by both architectures. While GPT’s open-ended production runs
+the danger of producing realistic but inaccurate results, BERT may occasionally misestimate ambiguous
+or implicit conditions. The study also highlights the ongoing challenge of producing distractors that are
+really plausible without confusing learners, as well as the shortcomings of conventional n-gram metrics
+in assessing MCQ task semantic richness.
+Rodriguez-Torrealba et al. (2022) introduce an end-to-end framework for generating multiple-choice
+question (MCQ) that uses pre-trained T5 models to convert English Wikipedia articles to structured ex-
+ams. The system is based on three fundamental modules: Question Generation (QG), Question Answer-
+ing (QA), and Distractor Generation (DG), deployed via a five-step pipeline. Wikipedia content is first
+parsed into meaningful paragraphs, and then question–answer pairs are generated through a fine-tuned
+T5-based QAPModel. Distractors are then generated with the help of a special DGModel, their semantic
+closeness to correct answers evaluated based on cosine similarity via GloVe embeddings. The output
+questions and answers are then aggregated into a uniform JSON structure, guaranteeing structural con-
+sistency. The DG component has a Text-to-Text formulation in which the model generates distractors
+conditioned on question, answer, and context inputs. Training employed optimized hyperparameters and
+beam search in addition to top-k and top-p sampling techniques to improve output diversity and creativ-
+ity. The single Text-to-Text paradigm allows for frictionless adaptation between sub-tasks and supports
+reproducibility through available models and code. Yet the results of evaluation show the shortcom-
+ings of word-overlap metrics like BLEU, which do not effectively reflect semantic depth but return low
+scores. While distractor similarity scores reflect significant relatedness, over-similarity among alterna-
+tives threatens vagueness. Furthermore, dependence on extractive generation limits the ability of the
+system to deal with reasoning-dense or multi-hop questions and thus its overall cognitive scope and
+generalization capacity.
+Hang et al. (2024) suggest MCQGen, a complete system integrating GPT-4 with Retrieval-Augmented
+Generation (RAG) and advanced prompt engineering techniques for MCQ generation. The system is
+supported by a two-pronged prompt engineering approach using Chain-of-Thought (CoT) and self-refine
+9
+strategies to prompt the LLM to go through sequential refinement processes. The methodology begins
+by requesting instructors to supply domain-specific facts that populate an external knowledge base with
+605 MCQs. RAG dynamically provided access to this database at question time for question generation,
+extracting relevant information for completing the generation context. CoT methodology encourages se-
+quential logical reasoning by utilizing the generation of candidate distractors as a meta-goal, evaluating
+the plausibility of these, establishing final choice based on common misconceptions. The self-improve
+approach establishes a loop where GPT-4 judges and enhances its initial response to increase difficulty
+without altering correctness. It was experimented on three question categories: math, concept, and code-
+based according to criteria of grammatical ease, answerability, diversity, complexity, and relevance. The
+major advantage of this system is its holistic blend of several approaches, which guarantees questions are
+contextually appropriate, challenging, and rooted in student misconceptions, thereby enabling personal-
+ized learning at scale. The system demonstrated high performance in grammatical fluidity and relevance
+on all question types. But there were significant failings in math question creation, where GPT-4’s poor
+reasoning capacity in numbers resulted in instances where correct answers were not among the choices.
+The model was equally poor in question diversity and depth, attributed to constraints of the prompt
+engineering process and scope of external knowledge base. In addition, sole focus on GPT-4 without
+comparative analysis of other models and restriction to English-language computer science writings
+limits the generalizability of findings.
+3.3.1
+Bloom’s Taxonomy Classifier
+Abduljabbar and Omar (2015) proposed a hybrid machine learning model that utilizes a voting algorithm
+to classify exam questions based on Bloom’s cognitive taxonomy by integrating Support Vector Ma-
+chine (SVM), Naïve Bayes (NB) , and k-Nearest Neighbor classifiers (KNN). Their approach improves
+classifier performance by employing feature selection approaches including Mutual Information, Chi-
+square, and Odd Ratio to address the problem of classifying brief programming-related queries. They
+showed that the voting ensemble outperforms individual classifiers by utilizing their distinct strengths,
+with SVM surpassing k-NN in the Comprehension and Analysis categories and k-NN excelling in the
+Knowledge, Application, Synthesis, and Evaluation categories, particularly when combined with Mu-
+tual Information-based feature selection. By demonstrating that a mixed classifier architecture offers
+more accuracy and robustness, the study improves on earlier rule based and single model classification
+techniques and better supports exam quality control and assessment design.
+Osadi et al. (2017) created an ensemble classifier to categorize exam questions into Bloom’s Taxon-
+omy cognitive tiers by combining rule based, Support Vector Machine (SVM), Naïve Bayes (NB), and
+k-Nearest Neighbour (k-NN) classifiers with majority voting and enhancing them using WordNet se-
+mantic similarity. By using WordNet to capture semantic relationships in questions, the study addressed
+the issues of overlapping keywords and a lack of semantic understanding in earlier works. They evalu-
+ated the model on a dataset of first year programming exam questions from the University of Colombo.
+According to their findings, the ensemble method performed noticeably better than individual classifiers
+at every cognitive level in terms of accuracy, precision, recall, and F-measure. Among classifiers, the
+ensemble achieved the highest overall accuracy, indicating that merging varied classifiers compensates
+for individual deficiencies and boosts resilience. According to the study’s findings, majority voting ef-
+10
+ficiently capitalizes on classifier strengths, and semantic similarity integration is essential for lowering
+classification ambiguity. They underlined that this approach supports balanced exam design by offering
+an accurate automated classification.
+Chanaa et al. (2024) provide a thorough analysis of the literature and an empirical investigation
+into the automated assessment of cognitive level in online tests utilizing machine learning and Bloom’s
+taxonomy. The authors draw attention to the drawbacks of manual coding for cognitive level analysis,
+pointing out that it is time consuming and not scalable. To address this, they compare several supervised
+machine learning models—including neural networks (NN), support vector machines (SVM), gradient
+boosting trees (GBT), random forests (RF), logistic regression (LR), and naive Bayes (NB) using a
+large, expert-annotated dataset of 15,182 learner assessment records. Their method predicts learners’
+cognitive levels (low, medium, and high) in real time by combining cognitive and affective factors in
+a novel way. These features include time spent, hint usage, attempt count, problem solving sequence,
+and confusion score. Neural networks outperformed other techniques and showed strong classification
+ability, achieving the greatest accuracy (82.2%) of all tested models. According to the study’s findings,
+ML-based cognitive level assessment is useful and efficient for adaptive online learning, allowing for
+more individualized pedagogical interventions and better learning results.
+Naik et al. (2025) conducted a systematic comparison of machine learning models to automate the
+classification of exam questions according to Bloom’s Taxonomy. The authors used efficient natural
+language processing techniques, such as RAKE for keyword extraction, SpaCy for tokenization and
+lemmatization, Regex for text cleaning, and TF-IDF for feature vectorization, to preprocess a dataset
+of 3,849 questions labeled across all six cognitive levels. A wide range of machine learning tech-
+niques were then assessed, including Random Forest, K-Nearest Neighbors, Logistic Regression, Linear
+Discriminant Analysis, Support Vector Machine, Multinomial Naive Bayes, and Decision Tree. The
+Random Forest classifier was ultimately found to be the most effective model, with 90% accuracy and
+balanced precision, recall, and F1 scores across all Bloom’s levels. The authors acknowledge Random
+Forest’s improved performance to its resilience to overfitting and its capacity to manage intricate, high-
+dimensional feature spaces.
+Shaikh et al. (2021) developed and assessed a deep learning model based on Long Short-Term
+Memory (LSTM) networks. Two manually tagged datasets were created by the authors, who then used
+pre-trained Wiki Word Vectors to extract semantic features after performing substantial text preparation,
+which included lowercasing, stopword removal, punctuation cleaning, tokenization, and lemmatization.
+The LSTM model was selected because it can handle the problem of overlapping action verbs that
+confuse simpler models, as well as long-term dependencies and contextual linkages in sequential text.
+Through methodical tests, the LSTM model was contrasted with keyword based strategies and conven-
+tional machine learning classifiers like Random Forests, Support Vector Machines, Multinomial Naive
+Bayes, Logistic Regression, and Artificial Neural Networks. Outperforming all baselines and prior
+research, the LSTM model obtained the highest classification accuracy, 87% for CLOs and 74% for
+assessment questions. The authors credit this achievement to the sequential modeling capabilities of the
+LSTM and the application of strong word embeddings, which work together to provide more accurate
+and contextually aware categorization.
+Sucipto et al. (2024) use data mining and knowledge discovery in databases (KDD) techniques to
+11
+provide a thorough assessment of question categorization techniques based on Bloom’s taxonomy. In
+order to categorize educational problems into Bloom’s cognitive levels, the authors examine 22 publi-
+cations that were published between 2016 and 2023 and encompass hybrid models, deep learning, and
+standard machine learning. Naive Bayes (NB), K-Nearest Neighbors (KNN), Support Vector Machines
+(SVM), Decision Trees (DT), Logistic Regression (LR), and Random Forests (RF) are examples of
+widely used classical models. Of these, KNN and SVM often produce the best results. Because deep
+learning models, such as CNN, LSTM, Bi-LSTM, and BERT, can capture contextual and semantic in-
+formation, they are becoming more and more popular. In fact, multiple studies have shown that CNN
+and LSTM models can achieve accuracy rates of over 85%. To further improve classification perfor-
+mance, hybrid strategies are also investigated, such as combining SVM with CNN or RNN. According
+to the review, multi-class classification which includes all of Bloom’s levels is difficult because of data
+imbalance and overlapping class features, even if single-class classification jobs often have higher ac-
+curacy. No single methodology consistently performs better than others across all model types; instead,
+variations in accuracy are frequently ascribed to preprocessing quality, feature extraction methods such
+as TF-IDF and word embeddings and dataset characteristics.
+Manjushree D. Laddha et al. (2021) suggested a deep learning-based method that focused on both
+cognitive processes and knowledge dimensions in order to categorize summative assessment questions
+using the Revised Bloom’s Taxonomy (RBT). They employed two models Convolutional Neural Net-
+works (CNN) and Long Short-Term Memory (LSTM). While LSTMs, which capture sequential con-
+text, sought to comprehend broader meanings, CNNs, which are renowned for catching local features
+regardless of position, successfully identified crucial terms in queries. In addition to performing better
+in knowledge dimension categorization during testing, the CNN model surpassed LSTM in cognitive
+process classification tests, with an accuracy of 80% versus 71% for LSTM. LSTM had poorer test-
+ing accuracy due to overfitting, despite having superior training accuracy for knowledge dimensions.
+According to the study’s findings, CNN performs better on real-world classification tasks. With the
+potential to be expanded to other courses and incorporate metacognitive elements, this study helps in-
+structors comprehend the learning outcomes of their students and enables the creation of examinations
+that are in line with cognitive and knowledge levels.
+3.3.2
+Bias Detection
+Xue et al. (2024) examine re-emergence of selection bias with fine-tuned large language models su-
+pervised on multiple-choice question tasks and attribute it to a great extent to poor Multiple Choice
+Symbol Binding (MCSB) capability. Employing LLaMA2-7B and LLaMA2-13B, the research presents
+two output configurations: symbols alone and symbols and contents, using the Proportion of Plurality
+Agreement (PPA) as its measure. For reducing bias, three successive approaches are presented: Symbol-
+Content Binding (SCB), processing both option symbols and contents; Reweighted Symbol-Content
+Binding (RSCB), using Focal loss to reweight the salient label words; and Point-wise Intelligent Feed-
+back (PIF), using reinforcement learning techniques through the generation of negative samples that
+confound the wrong contents with symbols. They are shown to be flexible for various architectures and
+datasets without structural changes. But experiments are limited to small models because of computa-
+tional resource constraints, and the work makes use of only one negative sample per instance, without
+12
+considering the effect of changing ratios of samples. SCB also sometimes increases bias in bigger mod-
+els such as LLaMA2-13B, and PIF’s employment of pre-determined RSCB parameters adds further
+implementation restrictions. Emphasis on requirements engineering further limits the generalizability
+of findings to this environment.
+Li and Gao (2025) describe a mechanistic interpretability analysis of the phenomenon of anchored
+bias in the GPT-2 family of models, in which the models systematically prefer the first option (Ä¨) in
+multiple-choice situations regardless of the correctness of the choice. Using the logit lens method,
+the authors trace bias propagations across Multi-Layer Perceptron (MLP) layers and attention heads
+in benchmark sets such as Indirect Object Identification (IOI), Logical Deduction, Greater-than, ARC-
+Challenge, and CommonsenseQA. Their proposed mitigation strategy combines explicit MLP value
+vector adaptation based on knowledge neuron ideas with an attention recalibration mechanism reallo-
+cating attention across anchored and correct answer positions. Their approach provides a neuron-level,
+systematic description of bias processes and demonstrates how small, targeted modifications can influ-
+ence model behavior without retraining or architectural modification. The testing, however, is restricted
+to GPT-2 models ranging from 124M to 1.5B parameters, not including larger models such as GPT-3
+and LLaMA. Furthermore, while effective in bias localization, interventions degrade non-MCQ perfor-
+mance and give a partial picture by largely focusing on failure cases. Few-shot environments are also
+inconstant in suppressing anchored bias across all the datasets, particularly for GPT2-XL.
+Zheng et al. (2023) investigate the selection bias in multiple-choice answer settings of large lan-
+guage models (LLMs) in that some option positions are systematically favored and model performance
+is answer order-sensitive. On decoder-only models such as GPT-3.5-Turbo and LLaMA-30B, the pa-
+per compares models on MMLU, ARC-Challenge, and CommonsenseQA with zero-shot and five-shot
+scenarios. Through "answer-moving attack" tests, the authors demonstrate significant performance vari-
+ations depending on how correct answers are positioned spatially, and they determine that moving the
+golden option to position D reduces GPT-3.5-Turbo accuracy significantly, but placing it at position A
+enhances LLaMA-30B performance. To counteract this bias, the authors propose PriDe (Debiasing with
+Prior Estimation), a label-free inference-time debiasing technique that decomposes prediction probabil-
+ities into intrinsic content-based and prior position-based components using logarithmic decomposition
+and permutation summation. With learning global priors on a limited number of samples, PriDe effec-
+tively debiases future predictions at virtually no computational overhead and yields strong generalization
+across similar domains. Although the strategy improves accuracy and stability with modest resources,
+its benefit in performance degrades with huge permutation budgets. Further, PriDe generalization dete-
+riorates with huge semantic gaps between domains, and its use extends only to some benchmarks and
+low-shot regimes. Other prompting methods, like explicit debiasing and Chain-of-Thought reasoning,
+fail to eliminate selection bias adequately.
+Wang et al. (2023) carry out thorough evaluation of Unbalanced Matching (UM) bias and Distractor
+Similarity (DS) bias in Visual-Language Understanding (VLU) long-form answer tasks (VQA-Long)
+and find two most prevalent sources: UM bias, wherein correct answers are more n-gram similar to
+inputs than distractors, and DS bias, wherein incorrect answers too close to each other but dissimilar to
+the correct one. To counter these effects, the authors introduce Adversarial Data Synthesis (ADS) with
+ADS-Text (ADS-T) and ADS-Image (ADS-I). ADS-T builds upon Adversarial Matching by adding vi-
+13
+sual regions from pre-trained CLIP embeddings and using ChatGPT-based distractor refinement guided
+with human example supervision. ADS-I creates counterfactual image pairs via coarse-to-fine region
+removal and triple-pass autoregressive inpainting on the SPL model. Training is complemented by Intra-
+sample Counterfactual Training (ICT), with answer- and image-centric discriminative learning merged
+for enhanced robustness. The ADS-ICT framework combined realizes consistent generalization across
+a spectrum of visual-language models, realizing significant gains in debiased and domain-shifted condi-
+tions while generating visually consistent, photorealistic counterfactuals. However, determining appro-
+priate regions in ADS-I adds noise to affect synthesis quality and their reliance on ChatGPT as distractor
+generation sources has inheritability drawbacks. Human validation steps raise research expenses, and
+although the multi-component design is potent, it contributes to implementation difficulty. This work
+investigates VCR, SNLI-VE, and VLEP datasets mostly, leaving generalizability to other VLU tasks
+only partially mapped.
+3.4
+Adaptive Question Engine
+Liu et al. (2024) present a comprehensive machine learning-oriented overview of Computerized Adap-
+tive Testing (CAT), offering new insights to adaptive testing methods. The study shows that CAT offers
+important advantages over fixed-form testing, such as 40-60% decrease in test length without sacrificing
+similar measurement precision, enhanced test security by minimizing item exposure, and better exam-
+inee experience through effective difficulty targeting.The study presents a model-agnostic framework
+treating CAT as an active learning problem where the cognitive diagnosis model serves as the learning
+model and question selection algorithms serve as data selection strategies, bridging traditional psycho-
+metric theory with modern machine learning approaches.
+Ming-Kuo Kuo Xiangfang Li Lijun Qian Pamela Obiomon Xishuang Dong (2024) investigated the
+application of deep knowledge tracing for personalized adaptive learning in STEM education, demon-
+strating the effectiveness of state-of-the-art deep learning models in accurately predicting students’ aca-
+demic outcomes. Their research employed multiple DKT models including DKT, DKT+, DKVMN,
+SAKT, and KQN on a comprehensive dataset of 352,148 learning records for 17,181 undergraduate stu-
+dents. The research proved that SAKT and KQN models are superior compared to others in accuracy
+and AUC, offering useful insights for the identification of students who are at risk of academic under-
+achievement. These results carry important implications for the utilization of adaptive learning systems
+that anticipate student progress.
+Piech et al. (2015) proposed Deep Knowledge Tracing (DKT), the first use of deep learning for
+knowledge tracing tasks.DKT employs recurrent neural networks to process sequences of learning in-
+teractions over time, maintaining a hidden state that implicitly contains information about the history
+of past elements. This approach provides a high-dimensional and continuous representation of knowl-
+edge state, enabling more effective modeling of complex learning processes. The model achieved a 25%
+gain in AUC over the best previous result on knowledge tracing benchmarks, demonstrating that flexible
+neural network models can learn latent variable representations of student knowledge directly from data
+rather than requiring hard-coded expert annotations.
+Su et al. (2023) proposed Deep Knowledge Tracing with Learning Curves, addressing data sparsity
+issues in knowledge tracing systems. The research demonstrates that incorporating learning curve in-
+14
+formation into deep knowledge tracing models significantly improves prediction accuracy, particularly
+in scenarios with limited student interaction records. The proposed model captures both the temporal
+dynamics of knowledge acquisition and individual learning trajectories, enabling more accurate person-
+alization of learning experiences and better identification of students requiring intervention.
+Yang and Dorneich (2018) investigated affect-aware adaptive tutoring based on human-automation
+etiquette strategies, demonstrating that adapting the interaction style of intelligent tutoring system feed-
+back based on detected emotional states can selectively improve motivation, confidence, satisfaction,
+and performance. Their research developed a rule set that systematically selected proper etiquette strate-
+gies to address learning factors under different levels of user frustration. Results showed that feedback
+with etiquette strategies chosen systematically could target and improve learning factors more effec-
+tively than random changes, providing evidence that varying interaction style represents an effective
+mechanism for affect-aware adaptations.
+Kabudi, Pappas, and Olsen (2021) carried out a systematic mapping review of AI-powered adaptive
+learning systems and examined 37 studies to learn about the main benefits, difficulties, and areas for
+further research. Their study proves that AI-powered learning systems have many advantages such as
+enhancing the learning experience, flexibility in time, providing timely feedback, and tailored learning
+paths.The study identifies key AI technologies employed in adaptive systems including machine learning
+for student modeling and prediction, natural language processing for content analysis and generation,
+and data mining for pattern discovery in educational data.
+Petrovica (2017) presented an analysis of emotion recognition methods used in affective tutoring
+systems to enhance tutoring adaptation. The research examines various approaches to detecting student
+emotional states including facial expression analysis, physiological signal monitoring, interaction pat-
+tern analysis, and self-report measures. The study demonstrates that multimodal approaches combining
+multiple emotion recognition channels provide more reliable detection of affective states, enabling more
+effective affective adaptation in intelligent tutoring systems.
+3.5
+Student Interaction Layer
+Bhowmick et al. (2023) proposed a modular AI-based question generation system for educational eval-
+uation that has specific modules for question generation, answer prediction, and distractor construction.
+Their model focuses on personalization and interaction, which is guided by a detailed teacher survey, as
+well as automating the production of multiple-choice questions (MCQs) from teaching texts. This pro-
+vides an essential basis for student interaction layers. With the inclusion of generative AI models, the
+architecture supports dynamic adjustment to personal performance and customized feedback, enhanc-
+ing student-driven learning experiences. The approach supports interactive assessment and learners’
+continuous improvement with substantial avoidance of teachers’ workload. The authors demonstrate
+how incorporating AI in assessment tools produces a more interactive interface for student engagement,
+with adaptive, real-time feedback and personalized multiple-choice questions enhancing involvement
+and efficacy in formative and summative assessment practices.
+Wang, Xiao, and Tseng (2025) present a multi-agent workflow employing large language mod-
+els to generate MCQs for K-12 AI literacy assessment, explicitly aligning question generation with
+Bloom’s taxonomy and grade-level learning objectives. Their architecture combines a student interac-
+15
+tion layer through which user-submitted learning objectives, cognitive level, and grade-specific require-
+ments drive the process of generating, refining, and approving MCQs. Iteratively, the generated ques-
+tions are checked by LLM-facilitated critique agents for language expression and pedagogic suitability
+to ensure readable, accessible, and curriculum-compliant questions to students. Expert critique with a
+thorough rubric indicates that students experienced the interaction interface as well-constructed, under-
+standable, and appropriate for instructional purposes, with most questions being considered appropriate
+for classroom practice. The authors emphasize further development of the interface design based on
+various educational contexts and teaching styles, reflecting the platform’s flexibility and responsiveness
+to customized student participation.
+Sathish Kumar et al. (2025) proposed a personalized MCQ generator for adaptive learning leveraging
+retrieval-augmented generation (RAG) and prompt engineering within generative AI models. Their
+solution builds on the student interaction layer by adding an easy-to-use interface that enables learners to
+post subjects, take dynamically generated quizzes, and receive real-time adaptation according to personal
+performance metrics. The system includes a performance matrix, grading answers and adapting question
+difficulty to promote both student engagement and learning target mastery. This adaptive process not
+only offers instant feedback but also adjusts tests for every student’s needs and weaknesses, greatly
+enhancing motivation and understanding over static systems. Large-scale testing indicated increased
+accuracy in personalization (89.01%), dynamic difficulty adjustment in real time (95.02%), and better
+utilization of feedback (85.02%), positioning the tool as an optimal interactive and student-centered
+solution for test delivery.
+Aleven et al. (2022) created Tutti, an analytics dashboard for real-time monitoring aimed at inform-
+ing teachers as students undergo self-paced, AI-facilitated problem-solving practice using intelligent
+tutoring systems (ITS). Their system prioritizes subtle student interaction monitoring by offering a dual-
+screen environment: a class view displays the progress of each student, learning status, and key event
+alerts, whereas a deep dive screen provides information on individual students’ mastery, mistakes, and
+difficulties. Teachers appreciated the option of viewing both aggregate and detailed data, specifically
+the option to employ annotated snapshots and replay to measure targeted learning difficulties. The
+dashboard facilitates on-time intervention, offline private one-to-one chats, and customized feedback,
+which boosts learner interest and pedagogic effectiveness in online and offline settings. User-centered
+design research with teachers across different instructional modalities shaped Tutti’s features, illustrat-
+ing increased teacher awareness and effectiveness in managing individualized student progress during
+technology-enhanced self-paced learning.
+Holstein et al. (2019) designed a full co-design study of Lumilo, an in-real-time classroom orchestra-
+tion system using mixed-reality smart glasses to aid teachers during AI-augmented, self-paced learning
+sessions. The student interaction aspect of the system prioritizes unobtrusive, real-time visualizations
+of individual learning and behavioral states overlaid in the classroom space to keep teacher situational
+awareness intact without distraction. Teachers engage with rich analytics such as real-time student so-
+lution pathways and learning state sequences, allowing for temporal context of student actions. The
+system accommodates anonymous communication functionality (e.g., “ask the teacher” buttons) to pro-
+mote help-seeking while maintaining student anonymity. Iterative prototyping established strong teacher
+preferences for brief, actionable information that is respectful of classroom dynamics and maintains stu-
+16
+dent motivation. The co-design process highlighted the importance of teacher autonomy, student need
+prioritization, and balancing human judgment with technology mediation. By and large, this research
+contributes to interactive, real-time teacher support models in adaptive learning environments by com-
+bining participatory design and innovative prototyping techniques like Replay Enactments.
+Amershi et al. (2019) consolidated more than 150 AI design recommendations into 18 empirically
+validated, broadly applicable guidelines for human-AI interaction that respond to essential user interface
+design challenges for AI-enabled systems. Their guidelines address stages like setting initial system ca-
+pability and performance expectations, providing contextually appropriate services upon interaction,
+enabling efficient invocation, dismissal, and correction of AI services, explaining decisions made by AI,
+promoting user feedback that is fine-grained and global, and evolving over time while avoiding social
+bias and being sensitive to social norms. The guidelines were progressively improved through expert
+validation, user studies with 49 HCI experts, and heuristic evaluation, and were shown to have wide
+applicability across 20 top AI-enhanced products across categories such as e-commerce, navigation,
+voice assistants, and social networks. Interestingly, guidelines like making system capabilities explicit,
+displaying contextually pertinent information, and keeping short-term memory were found to be widely
+applicable, though transparency regarding why AI decides remains under-adopted. The authors high-
+light how crucial these recommendations are to promote user knowledge, confidence, and successful
+interaction with AI systems, whilst acknowledging that ongoing elaboration is necessary particularly for
+high-risk applications and voice or sensor-driven systems.
+VanLehn (2006) offers a detailed behavioral model for intelligent tutoring systems (ITS), separating
+the outer loop, which picks tasks for students, from the inner loop, which reviews student steps and
+offers pedagogical guidance. The student interaction layer lies mostly within the inner loop, where the
+system provides immediate minimal feedback, next-step hints, and error-specific feedback as students
+solve cumbersome multi-step problems. The feedback is dynamically adapted based on real-time student
+actions, knowledge components, and learning events detected by the system, allowing students to self-
+debug and be led toward mastery. The architecture also prioritizes automatic support vs. learner control,
+managing advanced hint generation, assessment precision, and adaptive feedback timing to maximize
+learning engagement. The research offers tangible instances from various ITS deployments, demon-
+strating diverse interface designs and feedback regulations that lead to effective student interaction in
+adaptive learning settings.
+3.6
+Response Analysis in Adaptive MCQ Systems
+Corbett and Anderson (1995) offer a landmark investigation of response analysis through the develop-
+ment of the ACT Programming Tutor, emphasizing modeling and tracing students’ knowledge states
+during programming skill acquisition. Their knowledge tracing method continuously determines the
+probability that a student has acquired certain rules in a cognitive model based on their interactive
+responses while practicing. The system learns by offering individualized remedial drills to mastery,
+including immediate feedback on correctness and guiding student advancement effectively. Empirical
+tests validated the predictive power of knowledge tracing for performance both within the tutor and in fu-
+ture assessments, emphasizing the importance of individual differences, parameter estimation, and error
+analysis in adaptive modeling. This work enriched response analysis by linking sequential interactions
+17
+with probabilistic mastery estimates, enabling precise adaptive feedback in AI-based learning systems.
+Piech et al. (2015) advanced this line of work by introducing Deep Knowledge Tracing (DKT), a
+deep learning-based response analysis model utilizing Recurrent Neural Networks (RNNs) and Long
+Short-Term Memory (LSTM) architectures. Unlike traditional knowledge tracing models that rely on
+handcrafted domain representations and Markovian assumptions, DKT learns latent knowledge states
+directly from interaction data. This enables accurate prediction of future student responses while un-
+covering hidden relationships between exercises. Empirical evaluations using large-scale educational
+datasets such as Khan Academy and Assistments demonstrated DKT’s significantly improved predic-
+tion accuracy and its ability to support dynamic, personalized curriculum sequencing—thus marking a
+paradigm shift in automated response analysis and adaptive learning.
+Pandey and Karypis (2019) further refined this approach through the Self-Attentive Knowledge Trac-
+ing (SAKT) model, which employs a Transformer-based self-attention mechanism to select and weigh
+relevant portions of a learner’s historical interaction data for predicting subsequent performance. SAKT
+improves interpretability and efficiency by dynamically focusing on useful components of past learning
+traces instead of sequentially processing entire histories. Extensive experimentation across real-world
+educational datasets revealed notable performance gains (average 4.43% increase in AUC) and better
+scalability than RNN-based systems. Moreover, the attention maps produced by SAKT provide insight
+into how specific past exercises influence future performance, facilitating fine-grained, interpretable re-
+sponse analysis and targeted feedback delivery.
+Choi et al. (2020) built upon these attention-based mechanisms with the introduction of SAINT,
+a Transformer encoder-decoder model that separately processes exercise and response embeddings to
+capture complex interactions between task features and learner behavior. SAINT integrates factors such
+as exercise ID, category, correctness, response time, and timestamps to model temporal and contextual
+relationships comprehensively. Tested on the large-scale EdNet dataset containing over 627,000 learners
+and 72 million interactions, SAINT outperformed prior models (SAKT, NPA) in both accuracy and
+AUC. Its multi-head attention visualizations reveal temporal dependencies that inform effective feedback
+generation and adaptive curriculum design—positioning SAINT as a highly effective real-time response
+analyzer for adaptive testing systems.
+Shin et al. (2021) further enhanced this line of research with SAINT+, a Transformer-based architec-
+ture incorporating temporal dynamics such as elapsed time (answer duration) and lag time (time between
+learning activities) into response representations. By treating exercise and response information inde-
+pendently within encoder-decoder layers and leveraging multi-head self-attention with upper triangular
+masking, SAINT+ effectively captures the temporal order of interactions. Experimental results on the
+EdNet-KT1 dataset—the largest publicly available education dataset—showed SAINT+ outperforms its
+predecessors (SAINT and SAKT) with gains up to 2.72% in accuracy and 3.61% in AUC. Ablation stud-
+ies validated the use of continuous embeddings for elapsed time and categorical embeddings for delay
+time as optimal. The model’s ability to analyze response patterns and temporal behaviors enables highly
+adaptive feedback creation and individualized learning path modeling.
+Pu et al. (2024) proposed the Enhanced Latent-state Aggregation Knowledge Tracing (ELAKT)
+model, an improved response analyzer that enhances latent knowledge state tracing by aggregating and
+smoothing knowledge embeddings using encoder modules and causal convolutions. ELAKT captures
+18
+rich knowledge states at each timestep and manages stochastic student behavior such as slipping and
+guessing through a multi-timestep prediction correction mechanism that forecasts response probabili-
+ties over multiple future interactions. Experiments on large-scale educational datasets demonstrate that
+ELAKT significantly surpasses state-of-the-art baselines such as DKT, SAKT, AKT, DKVMN, and
+MAN across metrics like AUC, accuracy, MAE, and RMSE. Ablation studies confirm the effectiveness
+of its input aggregation, hidden state smoothing, and multi-step prediction modules, highlighting its
+robustness for real-time response analysis and adaptive feedback in intelligent tutoring systems.
+Pardos et al. (2020) explored the integration of student response time in adaptive learning envi-
+ronments, proposing models that incorporate temporal information alongside correctness to enhance
+response analysis. Using large-scale educational datasets, their machine learning frameworks demon-
+strated that including response times improves proficiency detection and adaptive feedback generation.
+Their findings underscore the importance of considering multiple dimensions of learner interaction
+data—such as correctness, response time, and behavioral patterns—to perform holistic response analysis
+supporting personalized learning trajectories and real-time adaptive assessments.
+3.7
+Feedback and Recommendation Layer
+Meyer et al. (2024) carried out a high-quality randomized controlled trial showing that feedback pro-
+duced by large language models (LLMs) can substantially improve secondary students’ quality of revi-
+sions, motivation, and positive affective engagement. Their findings indicate that feedback produced by
+AI, when made timely, specific, and personalized, works well as an oral reward maintaining students’
+continuation of revisions and intrinsic motivation, thereby supporting fundamental cognitive and affec-
+tive processes of learning. The work is also seen to identify practical scalability benefits, unburdening
+teacher workload and facilitating frequent personalized feedback at scale, although it suggests additional
+research to mitigate feedback variation and user training issues towards wide-scale classroom deploy-
+ment. The work constitutes a pioneering move towards intelligent automated feedback systems based
+on AI for revolutionizing formative assessment and adaptive learning feedback, with strong potential to
+improve learner engagement and results in actual learning environments.
+Chen et al. (2020) propose a new auto-encoder neural network architecture to learn personalized
+feedback and recommendation in adaptive learning systems. Their method maps student interaction se-
+quences into learning pattern and knowledge state-representing latent representations to enable predic-
+tion of next responses and instant diagnostic feedback. Interestingly, the model incorporates contextual
+elements like timing and question difficulty, allowing the system to suggest personal learning activities
+that fill student knowledge gaps. Empirical tests on educational datasets reveal that the system improves
+feedback usefulness and learning effectiveness by dynamically adjusting to the performance trajectory
+of individual students. This research complements the goal of AI-driven adaptive MCQ assessment
+systems in providing focused feedback and personalized suggestions that maximize the engagement of
+students and their learning outcomes in a real-time, scalable fashion.
+Parcalabescu and Frank (2024) investigated the problem of assessing faithfulness in natural language
+explanations generated by large language models and discovered that all current methods evaluate self-
+consistency instead of actual reasoning fidelity. Parcalabescu and Frank proposed CC-SHAP, an in-
+terpretability method that evaluates input token contributions in predictions and explanations based on
+19
+SHAP values, obtaining a rich self-consistency measure. Their findings indicated that earlier faithfulness
+tests provide inconsistent results and do not fully account for internal model logic. Applying CC-SHAP
+to different models and datasets, they noted greater self-consistency of chat-tuned LLMs, while model
+size had no significant effect. This research underscores the need for robust explanation evaluation to
+guide the development of adaptive feedback systems that maximize trust and learning effectiveness in
+AI-driven exams.
+Jia et al. (2024) analyzed the fidelity of automated feedback provided by large language models on
+student assignments, with serious challenges owing to hallucinated content. Their research compared
+two feedback generation methods: a data-driven BART-based system and a prompt-driven ChatGPT4-
+based system. Both systems generated more than 23% hallucinated feedback, with intrinsic hallucina-
+tions being more common in the data-driven model and extrinsic hallucinations dominating the prompt-
+driven model. They tested different hallucination measurement approaches and discovered that instruc-
+tion fine-tuned ChatGPT performed most optimally according to human judgment, although perfor-
+mance is still not perfect. Notably, their hand-held ethical assessment discovered no offensive or private
+material in hallucinations. This research exposes significant pitfalls in the reliability of AI-created feed-
+back and emphasizes the importance of enhanced hallucination detection and avoidance procedures to
+provide reliable AI-driven education feedback systems.
+Guo et al. (2024) created a multi-agent system named AutoFeedback to enhance the quality of AI-
+provided feedback on students’ science tests in overcoming over-praise and over-inference problems
+typical of single-agent systems. The system uses two expert agents: one creates preliminary feedback,
+while the second agent checks and refines the feedback to make it accurate and pedagogically sound.
+Evaluated on 240 student answers, AutoFeedback greatly minimized over-praise from 15.42% to 1.25%
+and over-inference from 27.20% to 7.08%, performing better than single-agent models. This multi-agent
+system improves feedback validity by delivering pertinent, well-balanced, and constructively critical
+remarks in line with students’ true performance. The research emphasizes the promise of multi-agent
+teamwork for scalable and individualized learning aid and identifies challenges in completely addressing
+all issues of feedback. This research develops adaptive feedback procedures by integrating generative
+AI functionality with systematic quality control to enhance student learning outcomes.
+Stamper et al. (2008) proposed the Hint Factory, a new usage of Markov decision processes for
+automatically creating contextualized hints from historical student data in computer-aided instruction.
+Integrated with a pre-existing logic tutor called Deep Thought, their method builds MDPs from paths
+of student solutions and assigns reward values to steer hint generation. The Hint Factory gives step-by-
+step, goal-directed hints automatically and adjusts to the current state of the student’s problem. Their
+pilot experiment in an undergraduate philosophy class showed high availability of hints and student use
+of hints. This data-based hint generation process minimizes expert knowledge needed for intelligent
+tutoring system development, allows for ongoing refinement with updated data, and facilitates adap-
+tive feedback in non-adaptive computer-aided instruction settings. The research indicates promise for
+machine learning applied to MDPs to create automated tutoring tools in other subject matters so that
+personalized feedback is made more available and scalable for educational applications.
+Steinert et al. (2024) presented LEAP, a system utilizing large language models such as GPT-4o
+to provide research-grounded formative feedback designed to enhance students’ self-regulated learning.
+20
+LEAP allows educators to pre-prompt and issue tasks to trigger cognitive, metacognitive, and motiva-
+tional scaffolds, thereby improving problem-solving processes. The design of the system focuses on
+empirical educational research and theoretical underpinnings and is aligned with teachers’ ability to
+create personalized feedback without programming skills. LEAP applies systematic design of prompts
+to offer diverse scaffolds for learning including sense-making, elaboration, self-explanation, partial so-
+lutions, and motivational support. LEAP supports learner engagement through live, adaptive feedback
+while reducing hallucinations by aligning prompts to accurate solutions. Apart from supporting learn-
+ers, LEAP provides informative insights into data for teachers to improve instructional design. While
+issues such as bias and LLM output error still exist, LEAP is a major step forward toward successful,
+personalized, and accessible AI-driven educational feedback systems.
+4
+Problem Statement
+The conventional modes of assessment are usually based on inert question banks that do not address
+different cognitive abilities of the learner and do not meet their changing mastery and learning require-
+ments. Moreover, the current automated MCQ generation systems have problems including incompat-
+ibility with pedagogical frameworks such as Bloom’s Taxonomy, deficiency of real-time flexibility in
+response to student improvement, and susceptibility to biases in question material that can ruin objec-
+tivity. The proposed research aims to overcome these drawbacks by creating an AI-based evaluation
+platform that would be capable of dynamically creating unbiased, Bloom-compliant MCQs that react to
+real-time student data, thereby enabling individualized, fair, and effective learning experiences.
+21
+To provide a synthesized comparative perspective, Figure 2 presents a structured analytical com-
+parison across the seven core functional layers of AI-powered adaptive MCQ systems. Each layer is
+evaluated using standardized criteria including automation level, real-time adaptability, Bloom’s Tax-
+onomy alignment, bias awareness, personalization capacity, empirical validation strength, and research
+maturity. This structured synthesis moves beyond descriptive review and enables cross-layer evaluation
+of system integration, strengths, and research gaps.
+Figure 2: Table for comparative analysis in MCQ generation
+As illustrated in Figure 2, adaptive engines and feedback mechanisms demonstrate strong operational
+maturity and personalization capability, whereas Bloom-aligned generation and bias detection remain
+only partially integrated within generation pipelines. While classification models show high empirical
+robustness, generative AI-driven MCQ systems still require stronger validation frameworks and bias-
+aware calibration. The comparative synthesis confirms that although adaptive assessment systems are
+technologically advanced, full pedagogical alignment and fairness-aware integration remain ongoing
+research frontiers.
+5
+Analysis and Insight
+5.1
+Learning Content Input
+The overall research question of the contribution of learning content would be how the systems of learn-
+ing can could dynamically process and sieve and deliver quality teaching materials which would meet
+the needs of the learner and still maintain pedagogical quality and interest. They have discovered that
+multimedia teaching with a combination of the verbal channel with a visual channel results in better
+outcomes and the teaching of the contents through unimodality has not been able to achieve the desired
+22
+results [42]. This can be explained by the fact that it is dual-channel thinking where learners simultane-
+ously process both verbal and pictorial information and mobilize the information into coherent mental
+images. The effect sizes of multimedia learning are found to be 0.3 to 0.6 and it is statistically significant
+and consistent. These benefits, however, demand adequate instructional design decisions which control
+cognitive load and maintain both content and objectives of learning at equilibrium.
+The technologies of machine learning and natural language processing have allowed developing
+automated systems of content generation that can improve the performance and engagement of learners.
+The available evidence suggests that AI-based learning resources can be used to positively influence
+the test scores (about 23 points), the levels of engagement (about 31 points) compared to conventional
+means of delivering the content [44]. These systems typically utilize knowledge representation models
+to monitor the learner progress and also generate context sensitive micro-content. Despite the mentioned
+advantages, AI-based generation processes are not free of limitations, including the factual inaccuracy,
+inconsistency of the difficulty, and bias, which could be either cultural or linguistic. It is then suggested
+to introduce hybrid approaches that would entail automated generation and evaluation of human experts
+to guarantee quality of pedagogue, reliability and fairness.
+Domain-specific studies once again describe the necessities of the pedagogical alignment. Digi-
+tal resources well designed in the context of healthcare training have been demonstrated to be more
+successful in terms of clinical assessment outcomes by 18 per cent in comparison with lectures [45].
+Internal competent digital medical teaching in the majority of instances entails interactive simulation,
+case-based reasoning, virtual patients, and intelligent tests according to the competency models. Other
+areas of research are congruent in these findings, where digital content has been found most successful
+in situations where it facilitates domain-specific reasoning behaviors and not to replace them. These
+findings underline the fact that the role of education is mostly determined by the correspondence to the
+goals of discipline and not technology in itself.
+Team-based online learning is also useful in the appropriate application of content. Empirical stud-
+ies prove that web-based applications such as Google Classroom, Microsoft Teams, and Padlet may be
+applied to enhance student elaboration and engagement as a component of guided collaborative learning
+[43]. Instructional structuring The role definition, formative interaction processes and balanced assess-
+ment mechanisms must be structured in a proper way so that meaningful collaboration is guaranteed.
+The research on generative AI and intelligent tutoring systems demonstrates that more sophisti-
+cated NLP and machine learning models can identify conceptual delusions and create custom-made
+micro-content in real-time [46]. Such systems enable adaptive challenge and automatic feedback allow-
+ing customized directions of learning. The much information about adaptive AI systems is recorded
+on the improvement of efficiency of learning, quality of feedback, flexibility and personalization [58].
+However, the problems of the scalability, institutional readiness, teacher training and content validation
+persist. There must be a balanced implementation that implies tight liaison between the technological
+ability on one hand, pedagogical modeling on the opposite hand, quality assurance mechanisms and
+career growth.
+23
+5.2
+Content Preprocessing
+The content preprocessing constitutes one of the pillars of the educational analytics. It is demonstrated
+in experimental studies that structured pipelines can be preprocessed to improve the accuracy of the
+analytics by 20-30 percent relative to the analysis of raw data [47]. Data cleaning (processing missing
+values and data errors and duplicates), data transformation (normalization, encoding, feature construc-
+tions), and feature selection and dimensionality reduction (also known as data reduction) is often part
+of preprocessing. Special issues with educational dataset include hierarchical LMS, time interaction,
+multi-source aggregation and high domain requirement. Preprocessing, in its turn, is an analytical, and
+not a technical process.
+Preprocessing rigor and predictive performance have been experimentally observed to be directly
+related. Experience-based analysis of API indicates that neural networks, Naive Bayes classifiers and
+decision trees can increase their accuracy by an average of 25-29, 22 and 67 percent respectively with
+the assistance of structured preprocessing [48]. The behavioral predictors such as frequency of help-
+seeking, access pattern of resources, discussing, and duration of engagement are always superior to the
+demographic features, which imply the importance of interaction-based feature engineering.
+According to the e-learning log case studies, log cleaning, temporal aggregation and learning-phase
+segmentation is extremely helpful in enhancing the interpretability and predictive usefulness [49]. The
+very minor modifications of aggregation may materially alter the outcomes of analysis.
+The surveys on educational data mining have determined that the persistent preprocessing problems
+include high dimensionality, imbalance in the classes, time sequencing, and relationship unique to the
+domains [50]. The findings indicate the significance of the interdisciplinary engagement of data sci-
+entists and educational researchers to ensure that the pedagogically relevant patterns can be sustained.
+Driving automated preprocessing should then be informed by experts.
+Structured pipelines have been shown to significantly add 15-20 percent of predictive power with no
+substantial addition of computational complexity or run time to the process or an increase in overfitting
+risk [51]. Properly prepared datasets permit simpler models to do just as well as more complicated
+architecture trained on ill prepared data.
+Additional demonstrations that domain-sensitive feature engineering can enhance dropout predic-
+tion and performance prediction by over 12-22% are given by session-based measures of engagement,
+behavioral sequences and time-series learning features [52]. The findings validate the feeling that per-
+ceives that it is these preprocessing that imbues the learning science to technical processes which directly
+impact on reliability and model performance.
+5.3
+MCQ Generator using LLMs
+OpenAI invented GPT-4, which is a decoder only model that is a large-scale transformer, which is also
+implemented using the autoregressive next- Tokyo prediction paradigm. As an architectural design,
+it is a stack of transformer decoder blocks that are made of masked multi-head self-attention mecha-
+nisms, position-wise feed-forward networks, residual connections, and normalization. In pretraining
+the positional encodings of the tokenized inputs are fed through sequentially, and the model is trained
+to minimize the cross-entropy loss in order to predict the next token in a sequence. Reinforcement
+24
+Learning with Human Feedback (RLHF) is the method to obtain post-pretraining congruence, improve
+behavior after instructions, and improve the quality of responses. Inference During inference, text is
+generated through autoregressive decoding models which can take probabilistic decoding methods like
+top-k or nucleus sampling, and optional retrieval-augmented generation (RAG) needs grounding. It is
+also much applied in adaptive MCQ generation systems because it demonstrates higher fluency in the
+language, relevance in contexts, and referent ability to reason especially in higher-order cognitive levels
+in the Bloom Taxonomy. But, due to its closed-source, transparency is restricted, as well as repro-
+ducibility and fine-grained interpretability. Also practical and methodological constraints are high cost
+of calculation and hallucination possibility.
+Meta has introduced an open-weight decoder-only model of transformers, LLaMA 2, a perfor-
+mance/accessibility tradeoff autoregressive model. Like GPT-style models, it is taught to predict tokens
+sequentially given the context based on next-token cross-entropy optimization. LLaMA 2, architec-
+turally, features Rotary Positional Embeddings (RoPE), which promote positional generalization, RMS
+normalization and training stability as well as SwiGLU activation functions in the feed-forward layers
+to enhance expressiveness. The training entails mass tokenized corpora that is run through masked self-
+attention layers. Inference is generated autoregressively under probabilistic sampling techniques when
+text is being generated. Its open-weight implementation permits its domain-specific applications to get
+fine-tuned and can be usefully deployed in privacy-sensitive environments by institutions, which makes
+it highly appropriate to research-oriented adaptive assessment systems. However, LLaMA 2 might have
+quite lower linguistic refinement and zero-shot reasoning capability as compared to proprietary large-
+scale models. Its performance can sometimes require perceiving close immediate engineering and de-
+tailing in matters.
+Mistral 7B was created by Mistral AI and is a parameter-efficient decoder-only transformer that is
+optimized to be computationally efficient and still offer a competitive generative performance. This
+model adopts architectural advances including Grouped Query Attention (GQA) that cut down on the
+memory load through disseminating key-value projections of attention across numerous attention heads
+and Sliding Window Attention that constrain attention computation to local windows of tokens to reduce
+quadratic complexity. Training is done according to the typical autoregressive next-token prediction task
+with the cross-entropy loss. Inference Inference happens by running prompt tokenized prompts through
+masked self attention networks and selecting outputs in a sequential manner through probabilistic decod-
+ing. Mistral 7B has a smaller memory footprint and can perform inference more quickly, which makes it
+ideal when there is a limited number of resources or when the institutions are involved. Nevertheless, its
+small parameter scale can impose restrictions on the scope of its long-range contextual and its capacity
+to perform high-level numerical or multi-step-based reasoning, restricting its application in high-stakes
+assessment processes that demand the high level of cognitive detail.
+Google introduced a model called BERT (Bidirectional Encoder Representations from Transform-
+ers) that is an encoder-only model with the specific goal of contextual understanding, as opposed to the
+text generation that it was not originally meant to achieve. In contrast to autoregressive based models,
+BERT uses a Masked Language Modeling (MLM) objective during training where a random fraction
+of input tokens are masked and the model is trained to restore these tokens with the help of a bidirec-
+tional contextual cue. The architecture is made up of layers of transformer encoders that are stacked
+25
+with full self-attention meaning that left and right context can be modeled at the same time. The op-
+timization problem reduces a loss of the cross-entropy with masked token predictions. BERT is also
+commonly used to perform downstream evaluation with adaptive MCQ systems, including semantic
+similarity classification, a Bloom classification and the detection of ambiguity, or quality control of gen-
+erated questions. The [CLS] token represent is ripped off and traversed through a classification layer
+on predictive tasks. As much as BERT offers powerful contextual representations and good semantic
+understanding it does not have any generative ability and has to be combined with generative models in
+end-to-end question generation pipelines.
+T5 (Text-to-Text Transfer Transformer), which has been created and used within Google Research,
+is an encoder-decoder transformer model that puts a variety of natural language processing challenges
+on a text-to-text platform. Both inputs and outputs are expressed in the form of textual sequences in
+this paradigm, thus giving flexible task conditioning via instructional prefixes (e.g., "generate question:
+or generate distractors:"). Encoder works with tokenized sequence of inputs through bidirectional self-
+attention to return contextual representations, decoder works with autoregressive sequence generation
+through masked self-attention with cross attention to encoder representations. The trained model is
+evaluated on the basis of cross-entropy loss on the desired sequence of outputs. In adaptive MCQ
+generation processes, T5 is able to synthesize questions, extract answers and generate distractors in one
+architecture. Nevertheless, smaller instances can exhibit poor reasoning depth especially with higher-
+order cognitive problems and large configurations are usually needed to realize similar performance
+with large-scale decoder-only models. Also, the prefix designing and task conditioning are required to
+provide the controlled and constant results.
+GPT-4 by OpenAI, LLaMa 2 by Meta, Mistral 7B by Mistral AI, BERT by Google and T5 by Google
+Research have different architectural paradigms and functional trade-offs in adaptive MCQ assessment
+systems in comparative analysis. GPT-4 and LLaMA 2 are both decoder-based, autoregressive trans-
+formers optimized to predict successive tokens but GPT-4 has the advantages of large-scale proprietary
+pre-training, RLHF alignment, higher linguistic fluency, long-range coherence, and higher-order rea-
+soning performance, with LLaMA 2 open-weight having a disadvantage of reduced zero-shot reasoning
+strength. The computational efficiency of Mistral 7B is further enhanced with Grouped Query Attention
+and Sliding Window Attention which significantly simplify the complexity of memories and inference,
+but at the cost of potentially constrained memorization and multistep analytical processing as compared
+with more massive models. Unlike these generative decoder-only models, BERT is a model that can
+be trained as an encoder-only bidirectional transformer with masked language modeling and can thus
+serve effectively in semantic representation, classification and validation but is incapable of direct text
+generation, thus suggesting it can be preferred as an evaluative element in assessment pipelines. The
+encoder-decoder architecture implemented by T5 under a unified text-to-text framework is capable of
+structured task conditioning and a modular level of flexibility in its question and distractor generation,
+and is easy to control relative to decoder-only models, although smaller models can not be scaled ap-
+propriately to provide appropriate reasoning depth. As a whole, GPT-4 is shown as the most generative
+and reasonable, LLaMA 2 is more balanced between openness and adaptability, Mistral 7B is most
+computational-efficient, BERT is better at contextual evaluation than generation, and T5 is more gen-
+erative and capable of multiple tasks within frameworks of adaptive MCQ generation. Generally, the
+26
+selection of a particular model is determined by the choice between reasoning depth, interpretability,
+computational resource use, a task-independent contextual evaluation of BERT compared to generation,
+and system-level modularity.
+5.3.1
+Bloom’s Taxonomy Classifier
+Bloom introduced three domains of learning objectives: cognitive, affective, and psychomotor. The cog-
+nitive domain, which is central to assessment design, progresses from lower-order skills such as recall
+and understanding to higher-order abilities including analysis, evaluation, and creation [4]. While the
+psychomotor domain focuses on physical skills and the affective domain addresses attitudes and values
+[1, 2], automated assessment systems predominantly operationalize the cognitive domain. However,
+computational modeling of Bloom’s Taxonomy is inherently challenging due to the subjective bound-
+aries between cognitive levels and linguistic ambiguity across disciplines [3, 5]. Action verbs frequently
+overlap between levels, contextual intent varies by subject, and question phrasing may not explicitly
+reflect cognitive complexity, making automated Bloom classification a complex natural language under-
+standing problem.
+Classical machine learning including Support Vector Machine (SVM), Naive Bayes, k-Nearest Neigh-
+bor (k-NN), Logistic Regression, and Random Forest model predict the Bloom level by means of struc-
+tured feature engineering, and supervised classification. The processing stage starts with text processing
+such as tokenization, removing of stop-words, and stemming or lemmatization. TF-IDF vectors, n-
+grams or frequency based matrices are used to convert the processed text into numerical representations.
+Classifiers are fed on these feature vectors. SVM builds the best hyperplane in high dimensional space
+to maximize the separation between classes, and the non-linear boundaries are usually addressed by the
+application of kernel functions. Naive Bayes estimates posterior class likelihoods by applying the Bayes
+law in conditional independence assumptions. k-NN labels by similarity (Euclidean or cosine distance)
+by basing on the class that prevails in the sample neighborhood. The Logistic Regression models are
+probabilities that are developed on weighted features and classified with the use of a sigmoid or softmax
+function, which makes them probabilistic. Random Forest combines a set of decision trees which are
+trained using bootstrapped samples and makes predictions by the majority voting to minimize variance.
+These models are computationally cheap, interpretable based on feature weights or decision pathways
+and work with smaller datasets. They are however very reliant on manual feature engineering, and they
+have difficulties with contextual semantics and they tend to classify questions incorrectly when cognitive
+verbs have overlapping lexical meanings but contextually contrast.
+In order to compile strength, ensemble and hybrid models merge several base learners into a single
+design. In bagging, various models are trained using various bootstrap samples and the predictions are
+combined together to minimize variance. Training the models with trains in series, reweighting the
+samples incorrectly labeled, with emphasis to the challenging cases, which minimizes bias. Stacking
+adds a meta-learning layer in which predictions of heterogeneous base classifiers are used as input
+features to a higher-level model which learns the best combination weights. This decision fusion is
+more stable and predictive; this comes about by correcting individual model flaws. The problem with
+ensemble frameworks however is that they raise computational complexity, limit transparency because
+of interacting decision layers and it is complex to interpret in educational settings where explanatory
+27
+justification is valued.
+Convolutional Neural Networks (CNN), Long Short-Term Memory (LSTM) and Bidirectional LSTM
+(BiLSTM) Deep learning architectures eliminate manual feature extraction and learn representations.
+Textual queries are represented as dense embeddings that encode semantic similarity by tokenizing and
+converting them. CNN models are used, where local patterns (cognitive action phrases) are detected
+using convolutional filters applied to sequence of embedding and the result max-pooled to retain salient
+features and fully connected layers are used to classify. LSTM networks handle sequences with reg-
+ulated information flow by using gated memory cells which can capture long-term dependencies and
+determine cognitive intent over a whole question and not an individual keyword. BiLSTM builds on this
+mechanism by having text processed forward and backward to produce more rich contextual represen-
+tations and then classifying the text finally. These architectures enhance sequential semantic modeling
+much better and complex or long questions are better addressed than the classical approaches. However,
+they need sizeable labeled data, more computing power, and a sensitive choice of hyperparameters and
+have little interpretability since they use distributed internal representations.
+Transformer-based networks like BERT and RoBERTa use a self-attention mechanism that learns
+to depict the relationship between all the tokens at once. Input text is first tokenized and positional
+encodings are added and then multi-head self-attention calculates contextual interactions using query,
+key, and value matrices. This allows the model to describe subtle intent of cognitions and long term
+dependencies without regard to order constraints in sequence. In the fine-tuning stage, a layer that
+classifies a set of data is added to the existing encoder and the supervised backpropagation is used
+to modify the model parameters in order to do Bloom level prediction. Transformer models are very
+accurate in Bloom classification because the pretrainfine-tune paradigm offers high levels of semantic
+generalization and resistance to a wide range of linguistic backgrounds. Nevertheless, they contain
+millions of parameters, are difficult to compute without a graphics card, are very memory-intensive, do
+not have a high level of pedagogical interpretability, and can suffer performance loss when learning a
+different domain across curricula or academic subjects.
+Justifiable probabilistic methods like Labeled Latent Dirichlet Allocation (L-LDA) model Bloom
+can be classified using supervised topic modeling. The questions are expressed as a combination of
+latent topics with predetermined Bloom labels. During training, word distributions are linked to la-
+beled topics, and inference makes an estimate of the likelihood of each of the cognitive levels through
+topic proportions in the question. This probabilistic generative model offers explicit topic-word based
+and understandable reasoning paths. Predictive accuracy is usually however less than discriminative
+deep learning or transformer models and model assumptions can constrain its capacity to acquire deep
+contextual semantics.
+Comparing all types of machine learning models in detail, classical machine learning models, en-
+semble models, deep learning models, transformer-based models, and probabilistic topic models are
+radically different in terms of representation strategy, data dependency, computational requirements, in-
+terpretability, scalability, and domain resistance. Classical models (SVM, Naivé Bayes, k-NN, Logistic
+Regression, Random Forest) are trained on explicitly designed features; they are computationally effi-
+cient and do not demand many hardware resources and the decision logic can be traced because of feature
+weights or tree paths. Of them, SVM works well in high dimensional sparse spaces, but is sensitive with
+28
+respect to choice of its kernel; Naive bayes works fast and is stable with small datasets but is limited
+by independence assumptions; k-nn is simple and non-parametric and yet computationally expensive
+at inference time; Logistic Regression offers probabilistic interpretability but cannot follow nonlinear
+boundaries; random forest can reduce variance and generalize better, but lacks transparency relative to
+single-tree models. Bagging (also known as ensemble methods, or in other words: boosting, stacking)
+is a predictive stability technique which combats predictive variance in a task by relying on multiple
+classical predictors which are trained together on the same task, thereby increasing the tradeoff between
+predictive stability and predictive bias in the resulting model, bagging versus boosting versus stacking:
+Bagging enhances predictive stability by relying on multiple classical predictors trained jointly on the
+same task, boosting reduces predictive bias by increasing tradeoff between predictive stability and pre-
+dictive bias in the resulting model, stacking maxim In deep learning models, CNN is resulting in lower
+computational loads than recurrent models and strong at recognizing localized cognitive phrases but
+weak at capturing long-range dependencies; LSTM is strong at capturing sequence flow and contextual
+accretion but weak at representation at a finer level of Bloom differentiation at a higher computational
+cost; BiLSTM is strong at capturing contextual representation through bidirectional semantics, which is
+often stronger in finely differentiating the various kinds of Bloom differentiation compared to standard
+LSTM but at higher computational cost. In contrast to classical algorithms, deep models do not need
+manual feature engineering and can greatly enhance the semantic capture, at the cost of large labeled
+datasets and usage of GPUs. Transformer-based models (BERT, RoBERTa) are more contextually aware
+than CNN, LSTM or BiLSTM since self-attention models interact globally and simultaneously as op-
+posed to sequentially, and RoBERTa is usually trained to be better than BERT with improved pretraining
+schemes and increased exposure to data. Nevertheless, transformers require the most computational re-
+sources, have worse explainability than classical and probabilistic models, and can have domain transfer
+instability. L-LDA provides a better interpretability, using explicit topic-word distributions and prob-
+abilistic inferences than any other discriminative model yet loses classification and ability to capture
+rich contextual models. Logistic Regression or Random Forest can be used in the low-resource high-
+interpretability scholarly setting; bagging or boosting can be used when reducing variance is important;
+BiLSTM can be used where semantic depth on data is needed, but not extreme hardware demands; trans-
+former models will be the most appropriate when it is important to have the contextual precision and
+adaptive evaluation at scale; and L-LDA may be used when transparency and pedagogical traceability
+are of primary importance despite lower predictive accuracy. There is no universal architecture that
+is the best at accuracy, efficiency, interpretability and scalability all at the same time, all are trade-off
+spaces, and the best choice depends on the trade-off priorities of either the objective of the research is
+computational feasibility, semantic accuracy, robustness, explainability or cross-domain generalization.
+5.3.2
+Bias Detection
+5.3.2.1
+Bias Types
+Positional Bias (also known as Option-Identifier Bias) [68] is the bias found in Large Language Models
+over particular locations for the answer or identifiers (such as ‘A’ or ‘C’) irrespective of whether the
+semantically correct answer is correct or not. Experiments have been able to show that with the same
+semantically correct answer, varied performance levels with high values of difference being achieved
+29
+with position-shifting of the semantically correct answer across different locations for the answer. This
+obviously states that the performance levels of the model are dependent on the location of the answer
+rather than being dependent on the semantically correct answer.
+The Anchoring Bias [67] is considered to be quite strong variation of Position Bias in which the
+model strongly prefers the first option, ignoring the fact that the correct answer is provided in other
+options because in this situation, the probability value of the first option is set to be extremely high,
+ignoring the semantic indicator against it. The model is vulnerable to "positional tokens in the first few
+options," leading to "the generation of the first hypothesis."
+MCSB [66] is compromised in situations where this kind of binding between the abstract option
+symbols, for instance, A/B/C/., and their respective contents is not complete or is not stable. For instance,
+if there is poor binding between the symbols, then there will be ability to recognize what to put in the
+answer while, at the same time, spitting out another label for another option based on preferences at the
+symbol level. Consequently, this will result in predictions which will be highly sensitive to apparent
+variations, for instance, naming and ordering options, while there are actually no variations in semantic
+contents.
+Unbalanced Matching bias takes place when correct responses have a higher degree of overlap in
+form of n-gram with the questions or with the images their answers are with compared to those of in-
+correct options, such as the latter (Bampers, 2010, p. 955) [66]. Furthermore, distractors usually have a
+higher number of irrelevant n-grams than correct responses with non-relevant n grams to correct gram-
+mars average 1.14 and correct grammars average 0.18. This trend demonstrates that lexical superficiality
+can inappropriately exaggerate the apparent model knowledge.
+Distractor Similarity bias occurs when distractor choices are too similar between themselves and
+too different between the correct choice and the distractor choice that allows models to recognize the
+correct choice even in the absence of context is called Distractor Similarity bias [69]. Quantitative
+similarity tests reveal that the average intra-sample similarity between distractors and correct answers
+is 0.31, and average inter-sample similarity between correct answer and other correct answers are 0.34,
+which suggest that correct answer tends to be similar to other correct answers more than they are to
+their distractors. The mean intra-sample homogeneity of distractors is 0.36 which indicates unnatural
+homogeneity that decreases model discriminative ability.
+5.3.2.2
+Detection Metrics
+The standard deviation of recalls (RStd) can be used as a numerical expression to take a quantitative
+measure of selection bias based on the balance of alternative positions [68]. It is a natural metric, with
+the greater the imbalance in recalls, the greater the selection bias and the measure is not influenced by
+label imbalance as simple counting measures. recall balance is also showcased as a marker of the model
+resilience to changes in option positions and it has been proven through a strong correlation and balance
+between resiliency to answer-moving aggression and balance across position recalls in initial inputs.
+Answer-Moving Diagnostics [66] involves the systematic rearrangement of the correct answer among
+the options without any change in the content of the question and the correct answer. Variation in ac-
+curacy within these settings provides a clear measure of the dependency between the predicted output
+and the order of the options. A large variation in accuracy measures the bias of selection or anchoring.
+30
+This is an appropriate diagnostic test since it measures positional bias without modifying the level of
+difficulty in the test.
+Permutation Consistency Measures [68] are used for testing how well interaction between symbols
+and contents is bound on inspecting how well the same answer content is always picked without consid-
+ering the permutation of options. This actually tests the proportion of times for which the permutation is
+unchanged, which will presumably have high stability for high values and a lack of robustness for low
+values in terms of the binding of option symbols to their contents.
+5.3.2.3
+Mitigation Techniques
+PriDe reduces selection bias by breaking down the observed prediction distribution into a two part-
+intrinsic prediction distribution and a prior preference distribution over option identifiers [68]. These
+estimated global priors are later reused to debias future samples. In low-cost situations, PriDe offers
+better debiasing efficiency than Full or Cyclic Permutation baselines, and matches or even better perfor-
+mance. It can be trained label-free with insignificant computational cost in an inference step following
+initial estimation, and exhibits high cross-domain generalization where priors trained in a single MMLU
+domain transfer well to different domains. Moreover, the estimated priors do not change with the change
+in sample size, and similar domains have the same accuracy improvements.
+SCB improves the Multiple Choice Symbol Binding (MCSB) capacity, as both the option symbols
+and contents are used to train the subjects of the experiment. SCB is the one that incorporates both
+the option symbols and the contents as training targets [66]. SCB does not however always minimize
+selection bias and in some cases, it inflates it in the case of the LLaMA-2-13B model. RSCB builds
+upon SCB with reweighting on Focal loss with the principle of label words being anchors. RSCB per-
+forms better to the extent of improving MCSB capacity and thereby minimizing selection bias since the
+importance of symbols is prioritized in training. The construction of negative samples in PIF is based
+on the random pairing of the incorrect option content with all other symbol options and a point-wise
+loss function based on Reinforcement Learning from Human Feedback (RLHF) [66]. The optimization
+objective is to have the probability of positive examples near to 1 as much as possible and the probability
+of negatives nearer to less than the value of ε as little as possible. Factually, PIF minimizes selection
+bias (µbias). The approach is generalizable to all types of LLM architectures without having to alter the
+structure. Nonetheless, PIF necessitates warm-up initiation with RSCB parameters and also increases
+the level of implementation complexity since a single example negative is randomly selected per training
+instance. In this method, internal representations are directly modified by changing values vectors also
+referred to as, v,n in MLP layers, directly [67]. Such updates yield significant improvement in classifica-
+tion accuracy in MCQ data collections. The approach involves limited intervention, changes in selective
+attention heads and value vectors, without retraining or changing architecture. Non-MCQ task perfor-
+mance however is impaired due to direct value vectors manipulation, as demonstrated by deterioration
+on original IOI benchmarks and Greater-than benchmarks.
+ADS produces artificial factual and counterfactual image-text information to alleviate Unbal anced
+Matching (UM) and Distractor Similarity (DS) biases [69]. ADS-Text (ADS-T) reinforces Adversar-
+ial Matching by visual premise evidence and visual relevance scoring by pretrained CLIP models, and
+chatbot-based refinement of distractors through human-outlined samples. There is a high level of gen-
+31
+eralization in visual-language (VL) models in ADS-ICT. More advantages are seen with domain-shifted
+conditions.
+5.4
+Adaptive Question Engine
+A dynamic question engine is used to select and order assessment items in order to accommodate learner
+characteristics [53]. Instead of giving a fixed test, adaptive systems alter the difficulty of items in order
+to achieve measurement efficiency and interest.
+Research in computerized adaptive testing indicates that the test length can be cut by 40-60 percent
+without affecting test measurement. The selection methods used often maximize the Fisher information
+with regard to estimated ability. More modern implementations use machine learning in estimating that
+the abilities, and multi-objective optimization to find a balance between coverage, fairness, and exposure
+management.
+The deep knowledge tracing models, such as DKT, SAKT, and KQN have been shown to have better
+predictive power than conventional probabilistic approaches [54]. Massive datasets demonstrate useful
+monitoring of the state of knowledge changes.
+Recurrent neural network models have demonstrated to achieve up to 25 times greater predictive
+accuracy when compared to the previous probabilistic models [55]. Although they are very precise, they
+consume a large amount of data and calculations.
+The models of knowledge tracing that are enhanced with the learning-curve feature demonstrate
+better performance in sparse data environments [56]. Affect-sensitive tutoring studies investigate the
+use of adaptation in response to emotional cues [e.g. frustration or disengagement] [57], albeit with
+varying detection accuracy.
+The systematic reviews of AI tutoring on more than 30,000 learners report the effect sizes ranging
+between 0.4 and 0.8 in comparison with traditional instruction [59]. The rich learner modeling, im-
+mediate feedback, adaptive sequencing and learning analytics integration are all critical success factors.
+The challenges associated with implementation are scalability, calibration requirements and institutional
+preparedness.[60]
+5.5
+Student Interaction Layer
+Student interaction layer is the main point of interaction between learners and AI-based learning systems.
+It facilitates real-time communication, smart tutoring, testing, as well as active feedback in addition to
+the freedom of the learner.
+The AI-generated MCQs, being matched to the instructional goals, allow providing instant feed-
+back and adjusting the difficulty accordingly [15], [16]. Teacher-support dashboards are interfaces that
+visualize learner progress and analytics to provide a timely intervention [17].
+The principles of human-AI interaction focus on transparency, communication of errors, signaling
+capability and constructive feedback [18]. The context-sensitive feedback leads to self-regulation and
+the development of metacognition [19]. Nevertheless, over personalization or a complicated interface
+can cause an increase in cognitive load[20][21].
+32
+New studies look into conversational AI, multimodal interface, affect-sensitive interaction, and so-
+cially interactive systems that combine behavioral and emotional cues [18, 19, 21]. These methods
+increase the motivation, inclusion and teamwork abilities. The interpretability, ethical governance, pri-
+vacy protection, and participatory design approaches are the primary future priorities[22][23][24].
+5.6
+Feedback and Recommendation
+The system of feedbacks and recommendations offers individualized feedback depending on perfor-
+mance and interaction strategy of learners. Feedback systems based on LLM show great increases in the
+quality of revision, motivation, and independent learning in case feedback is prompt and focused [35].
+Predictive diagnostics and adaptive generation of feedback with neural architectures based on latent
+knowledge representations and autoencoders are possible [35]. There are however concerns about inter-
+pretability and reliability. CC-SHAP techniques are among those who point inconsistency and support
+validation frameworks [36].
+Feedback systems based on LLM have the vulnerability to hallucination and bias [37], [38]. The
+multi-agent methods are promising in the balancing of critique and motivational scaffold.
+Previous findings on intelligent hint generation have shown that context sensitive feedback in stages
+enhances efficiency of problem solving [39]. Multimodal feedback systems and recommendations strate-
+gies built by reinforcement learning are also current trends.
+Further research needs are to improve factual reliability, transparency, better ethical protection, and
+protection of privacy. It is imperative to combine both pedagogical principles and AI-based mechanisms
+that provide feedback to enhance the fair and efficient application[40].
+6
+Conclusion
+This survey provides a detailed discussion of adaptive multiple-choice assessment systems mediated by
+artificial intelligence and organized around the Bloom Taxonomy and real-time performance analytics
+of a learner. The review illustrates how artificial intelligence, in the form of machine learning, deep
+learning, transformer architecture, and large language models, has restructured conventional evaluation
+methods of the past as dynamic, customized, and continually changing evaluation ecosystems. Contem-
+porary adaptive systems, in contrast to traditional fixed test banks, combine automated MCQ creation,
+cognitive-level classification, bias detection, adaptive sequencing, and smart feedback, into a closed-
+loop design. The gathered evidence throughout the literature attests to the fact that AI-based assessment
+systems offer tremendous benefits in terms of the level of personalization, accuracy of classification, and
+efficiency and lessen the time of assessment without impacting measurement accuracy.
+This article adds a synthesized and comparative knowledge of the available methods as opposed
+to considering each layer separately. The evidence examined shows that there is no single modeling
+paradigm that is eminent in all aspects in adaptive assessment systems. Classical machine learning
+models offer predictable and understandable Blooms level classification accuracy (85-90) with success-
+ful feature engineering, in comparison with better contextual understanding of semantically challeng-
+ing questions, albeit at greater computational expense, offered by transformer-based and hybrid deep
+33
+learning models. Proprietary large language models are more linguistically fluent in MCQ generation,
+whereas open-weight and curriculum-aligned retrieval-augmented models are also more transparent and
+curriculum-aligned. Symbol-Content Binding and PriDe are bias mitigation methods capable of alle-
+viating measurably biasing instances of bias, but bias mitigation performance is architecture-specific.
+Through comparative study of the classification, generation, control of bias, knowledge tracing as well
+as feedback process through a single integrated framework, this survey provides a consolidated base
+to researchers, which notes the architectural trade-offs, system-level strategies of integration and open
+solution problems in adaptive assessment research.
+The focus in future studies should be on interpretability, cross-domain generalizability, fairness, and
+control of hallucinations to make sure that they can be successfully deployed in any high-stakes edu-
+cational setting. Adaptive sequencing and mastery modeling can be enhanced additional by increased
+integration of cognitive, behavioral, and affective signals of the learner. Also, the explainable AI pro-
+cesses and effective bias diagnostics are supposed to be integrated at the generation and evaluation levels
+to provide transparency and pedagogical integrity. The development of AI-based adaptive MCQ systems
+is an indication of a paradigm shift to smart and learner-centered and scalable assessment ecosystems
+and future interdisciplinary cooperation will be paramount to making AI-based assessment systems ful-
+fill their full educational capabilities.
+Future Scope
+The increasing interdependence of artificial intelligence, cognitive science, and educational technology
+is driving significant advancements in adaptive MCQ-based assessment systems. While current systems
+can scale using advanced machine learning models and large language models (LLMs) to provide auto-
+mated, personalized feedback, several promising research directions can further enhance their capability,
+fairness, and scalability.
+One important direction is the development of explainable cognitive-level classification models that
+clearly justify question difficulty and Bloom-level allocation. Such interpretability will strengthen edu-
+cator trust and help students better understand gaps in their cognitive learning progression.
+Future systems may also integrate multimodal learning signals such as handwriting patterns, speech
+input, eye-tracking data, and emotional state recognition. Extending adaptation beyond knowledge ac-
+curacy toward holistic learner profiling will enable systems to respond not only to correctness but also to
+engagement, frustration, fatigue, or disengagement. Affective feedback mechanisms could dynamically
+adjust question pacing and delivery to improve learning efficiency.
+Advanced architectures combining LLMs with knowledge tracing models and reinforcement learn-
+ing can move beyond static recommendation systems toward intelligent tutoring agents that continuously
+optimize question strategies based on long-term learner development. Multi-agent LLM frameworks for
+automated question validation, cognitive tagging, plagiarism detection, and distractor quality scoring
+can reduce human workload while improving robustness and reliability.
+Bias detection and mitigation remain critical research areas. On-the-fly fairness auditing, domain-
+aware debiasing techniques, cultural sensitivity modeling, and internationally diverse training datasets
+can strengthen equity across languages, disciplines, and demographic groups. Standardization of evalu-
+34
+ation benchmarks for educational LLMs, Bloom classifiers, and adaptive engines will also be necessary
+to ensure interpretability and cross-institutional reliability.
+From a deployment perspective, privacy-preserving adaptive assessment systems incorporating edge
+computing can secure sensitive learner data while maintaining scalability in large academic environ-
+ments. Integration with Learning Management Systems (LMS), classroom dashboards, and institutional
+analytics platforms will enable real-time insights and actionable intervention strategies for educators.
+Ultimately, the future of AI-driven adaptive MCQ systems lies in building open, intelligent, emotion-
+ally aware, and bias-resistant learning ecosystems that evolve continuously with learners and empower
+educators to deliver high-quality, personalized education at a global scale.
+Funding: Funding will be supported by Vellore Institute of Technology, Vellore.
+Declarations:
+Data availability statement: All data supporting the findings of this study are available within the paper
+and its Supplementary Information.
+Ethics Declarations: Not applicable.
+Consent to Participate: Not applicable.
+Consent to Publish declarations: Not applicable.
+Informed consent: Not applicable.
+References
+[1] Pickard, M. J. (2007). The new Bloom’s taxonomy: An overview for family and consumer sciences.
+Journal of Family and Consumer Sciences Education, 25(1), 45-53.
+[2] Adams, N. E. (2015). Bloom’s taxonomy of cognitive learning objectives. Journal of the Medical
+Library Association, 103(3), 152-153. doi:10.3163/1536-5050.103.3.010
+[3] Caldwell, James, "Using Bloom’s Taxonomy to Develop an Approach to Analysis," Journal of Mu-
+sic Theory Pedagogy, 3 (1), Article 10 (1989), doi:10.71156/2994-7073.1009
+[4] Hoque, M. E. "Three domains of learning: Cognitive, affective and psychomotor," The Journal of
+EFL Education and Research, 2(2), 45–52 (2016).
+[5] Smith Jr, Wade C. "A Review of the Research into Teaching Styles/Behaviors’ Impact on Students’
+Cognitive Outcomes and Bloom’s Taxonomy." (1997).
+[6] Chanaa, A., & El Faddouli, N. "A cognitive level evaluation method based on machine learning
+approach and Bloom of taxonomy for online assessments," Journal of Education and Learning (Ed-
+uLearn), 18(2), 553-560 (2024). https://doi.org/10.11591/edulearn.v18i2.20948
+35
+[7] Sucipto,
+D.
+D.
+Prasetya,
+and
+T.
+Widiyaningtyas.
+"Α
+Supervised
+Hybrid
+Weighting
+Scheme for Bloom’s Taxonomy Questions using Category Space Density-based Weight-
+ing," Engineering, Technology & Applied Science Research, 15(2), 22102–22108 (2025).
+https://doi.org/10.48084/etasr.10226
+[8] Manjushree D. Laddha, Varsha T. Lokare, Arvind W. Kiwelekar, Laxman D. Netak. "Classi-
+fications of the Summative Assessment for Revised Blooms Taxonomy by using Deep Learn-
+ing," International Journal of Engineering Trends and Technology, 69(3), 211–218 (2021).
+https://doi.org/10.14445/22315381/IJETT-V69I3P232
+[9] Kumar, A., Singh, D., & Dhankhar, M. S. "Analysis of Bloom Taxonomy-Based Examination Data
+Using Data Mining," International Journal of Intelligent Systems and Applications in Engineering,
+12(4s), 744–761 (2023)
+[10] Waheed, A., Goyal, M., Mittal, N., Gupta, D., Khanna, A., & Sharma, M. "BloomNet: A robust
+transformer based model for Bloom’s learning outcome classification," Proceedings of the 4th In-
+ternational Conference on Natural Language and Speech Processing (ICNLSP 2021), 1(1), 1–10
+(2021)
+[11] Gani, M. O., Ayyasamy, R. K., Alhashmi, S. M., Alam, K. S., Sangodiah, A., Khaleduzzman,
+K., & Ponnusamy, C. "Towards enhanced assessment question classification: a study using ma-
+chine learning, deep learning, and generative AI," Connection Science, 37(1), 2445249 (2025)
+https://doi.org/10.1080/09540091.2024.2445249
+[12] Banujan, K., Kumara, S., Prasanth, S., & Ravikumar, N. "Revolutionising educational assessment:
+Automated question classification using Bloom’s taxonomy and deep learning techniques – A case
+study on undergraduate examination questions," International Journal of Education and Develop-
+ment using Information and Communication Technology, 19(3), 259–278 (2023)
+[13] Chanaa, A., & El Faddouli, N. "A cognitive level evaluation method based on machine learning
+approach and Bloom of taxonomy for online assessments," Journal of Education and Learning (Ed-
+uLearn), 18(2), 553–560 (2024). https://doi.org/10.11591/edulearn.v18i2.20948
+[14] Das, S., Das Mandal, S. K., & Basu, A. "Identification of Cognitive Learning Complexity of As-
+sessment Questions Using Multi-class Text Classification," Contemporary Educational Technology,
+12(2), ep275 (2020). https://doi.org/10.30935/cedtech/8341
+[15] Bhowmick, A. K., Jagmohan, A., Vempaty, A., Dey, P., Hall, L., Hartman, J., Kokku, R., &
+Maheshwari, H. (2023). Automating question generation from educational text. arXiv preprint
+arXiv:2309.15004. https://doi.org/10.48550/arXiv.2309.15004
+[16] Wang, J., Xiao, R., & Tseng, Y.-J. (2025). Generating AI literacy MCQs: A multi-agent LLM
+approach. In Proceedings of the 56th ACM Technical Symposium on Computer Science Education.
+https://doi.org/10.48550/arXiv.2412.00970
+36
+[17] Sathish Kumar, T., Aravindan, R., Rishanthi, S., Vignesh, K., Bharathi, P., & Sathya, T. (2025).
+Personalized MCQ generator for adaptive learning by using leveraging RAG method in Gen AI.
+International Journal of Experimental Theoretical Artificial Intelligence, 4(1), 1–10.
+[18] Aleven, V., Blankestijn, J., Lawrence, L. M., Nagashima, T., & Taatgen, N. (2022). A dashboard
+to support teachers during students’ self-paced AI-supported problem-solving practice. In I. Hilliger
+et al. (Eds.), EC-TEL 2022, LNCS 13450 (pp. 1630–1638). Springer. https://doi.org/10.
+1007/978-3-031-16290-9_2
+[19] Holstein, K., McLaren, B. M., & Aleven, V. (2019). Co-designing a real-time classroom orches-
+tration tool to support teacher-AI complementarity. Journal of Learning Analytics, 6(2), 27–52.
+https://doi.org/10.18608/jla.2019.62.3
+[20] Amershi, S., Weld, D., Vorvoreanu, M., Fourney, A., Nushi, B., Collisson, P., Suh, J., Iqbal, S.,
+Bennett, P. N., Inkpen, K., Teevan, J., Kikin-Gil, R., & Horvitz, E. (2019). Guidelines for human-AI
+interaction. In Proceedings of CHI 2019. https://doi.org/10.1145/3290605.3300233
+[21] VanLehn, K. (2006). The behavior of tutoring systems. International Journal of Artificial Intelli-
+gence in Education, 16(3), 227–265.DOI: 10.1007/s40593-006-0004-6
+[22] Lee, D., & Kizilcec, R. F. (2024). Adaptive feedback and learner agency in AI tutors. Computers
+& Education, 212, 105012. DOI: 10.1016/j.compedu.2023.105012
+[23] Pan, Y., Li, L., & Wang, K. (2023). Conversational tutoring agents for personalized feedback in
+AI-based learning systems. IEEE Transactions on Learning Technologies, 16(3), 380–393. DOI:
+10.1109/TLT.2023.3265892
+[24] Bernacki, M. L., Greene, J. A., & Crompton, H. (2022). Affective-adaptive learning: The role of
+emotional state recognition in personalized education. British Journal of Educational Technology,
+53(6), 1367–1385. https://doi.org/10.1111/bjet.13210
+[25] Corbett, A. T., & Anderson, J. R. (1995). Knowledge tracing:
+Modeling the acquisi-
+tion of procedural knowledge. User Modeling and User-Adapted Interaction, 4(4), 253–278.
+https://doi.org/10.1007/BF01099821
+[26] Piech, C., Spencer, J., Huang, J., Ganguli, S., Sahami, M., Guibas, L., & Sohl-Dickstein, J.
+(2015). Deep knowledge tracing. Advances in Neural Information Processing Systems, 28, 505–513.
+https://doi.org/10.48550/arXiv.1506.05908
+[27] Pandey, S., & Karypis, G. (2019). A Self-Attentive Model for Knowledge Tracing. Pro-
+ceedings of the 28th International Joint Conference on Artificial Intelligence, 1126–1132.
+https://doi.org/10.48550/arXiv.1907.06837
+[28] Choi, Y., Lee, Y., Cho, J., Baek, J., Kim, B., Cha, Y., Shin, D., Bae, C., & Heo, J. (2020). To-
+wards an appropriate query, key, and value computation for knowledge tracing. AAAI Conference
+on Artificial Intelligence, 34(05), 5956–5963. https://doi.org/10.1609/aaai.v34i05.6384
+37
+[29] Shin,
+D.,
+Shim,
+Y.,
+Yu,
+H.,
+Lee,
+S.,
+&
+Kim,
+B.
+(2021).
+SAINT+:
+Integrat-
+ing Temporal Features for EdNet Correctness Prediction. arXiv preprint arXiv:2010.12042.
+https://doi.org/10.48550/arXiv.2010.12042
+[30] Pu, Y., Liu, F., Shi, R., Yuan, H., Chen, R., Peng, T., & Wu, W. (2024). ELAKT: Enhanc-
+ing locality for attentive knowledge tracing. IEEE Transactions on Learning Technologies. DOI:
+10.1109/TLT.2024.3652601
+[31] Pardos, Z. A., Gkatzia, D., Hu, X., & Taylor, L. A. (2020). Incorporating response time dynamics
+into student performance prediction. Proceedings of the 20th International Conference on Artificial
+Intelligence in Education, 14 pages.preprint: https://arxiv.org/abs/2010.07549
+[32] Li, Q., & Zhao, C. (2023). Explainable transformer-based knowledge tracing for inter-
+pretable adaptive learning. Computers and Education: Artificial Intelligence, 4(2), 100078. DOI:
+10.1016/j.caeai.2023.100078
+[33] Yang, W., & Xu, L. (2024). Enhancing deep knowledge tracing via diffusion models for personal-
+ized adaptive learning. Proceedings of the Educational Data Mining Conference (EDM 2024).
+[34] Chatterjee, D. (2024). BERT-Boosted Adaptive Learning: Integrating contextual embeddings for
+multi-domain education systems. arXiv preprint arXiv:2407.18519.
+[35] Meyer, M., Wang, L., Lee, J., et al. (2024). Feedback produced by large language models to support
+student revisions, motivation, and affect. Educational Data Mining, 2024.
+[36] Chen, Y., Zhou, Z., Li, H., et al. (2020). Neural network architecture for personalized feedback,
+incorporating context such as timing and difficulty. IEEE Transactions on Learning Technologies.
+DOI: 10.1109/TLT.2020.3008029
+[37] Parcalabescu, A., & Frank, M. (2024). CC-SHAP: Evaluating faithfulness in natural language
+explanations of AI models using SHAP values. Transactions on Explainable AI, 2(1), 45–60.
+[38] Jia, R., Zhang, T., Wang, Q., et al. (2024). Hallucination issues in large language models applied
+to education feedback: A comparative analysis of ChatGPT and data-driven systems. Journal of AI
+in Education.
+[39] Guo, S., Chen, D., Liu, Y., et al. (2024). Multi-agent system for improving educational feedback
+quality: A case study in science assessments. Educational Technology Research and Development.
+[40] Stamper, J., D. B., et al. (2008). The Hint Factory: Autonomously generating contextualized hints
+using Markov decision processes. Lecture Notes in Computer Science.DOI: 10.1007/978-3-540-
+85790-4_45
+[41] Steinert, M., F., et al. (2024). LEAP: AI-powered formative feedback to support self-regulated
+learning. International Journal of Educational Technology.
+38
+[42] Mayer, R. E. and Fiorella, L. (2021). The Cambridge Handbook of Multimedia Learning (3rd ed.).
+Cambridge University Press. https://doi.org/10.1017/9781108894333
+[43] Zou, D., Lambert, J., and Xie, H. (2025). Digital learning in the 21st century: trends, chal-
+lenges, and innovations in technology integration. Frontiers in Education, 10, Article 1562391.
+https://doi.org/10.3389/feduc.2025.1562391
+[44] Diwan, C., Srinivasa, S., and Bhat, S. (2023). AI-based learning content generation and learning
+pathway augmentation to increase learner engagement. Computers & Education: Artificial Intelli-
+gence, 4, Article 100120. https://doi.org/10.1016/j.caeai.2022.100120
+[45] Bankar, N. J., Deshpande, N., Rathi, A., Bhanushali, P., and Doshi, S. (2023). The role of
+e-content development in medical teaching: How far have we come?
+Cureus, 15(8), e43208.
+https://doi.org/10.7759/cureus.43208
+[46] Maity, S. and Deroy, A. (2024). Generative AI and its impact on personalized intelligent tutoring
+systems. arXiv preprint arXiv:2410.10650. https://doi.org/10.48550/arXiv.2410.10650
+[47] Rahhali, M., Oughdir, L., and El Khattabi, N. (2024). The impact of data preprocessing on the
+quality and effectiveness of e-learning. International Journal of Intelligent Systems and Applications
+in Engineering, 12(16s), 59-65. https://doi.org/10.5281/zenodo.10427846
+[48] Amrieh, E. A., Hamtini, T., and Aljarah, I. (2016). Mining educational data to predict student’s
+academic performance using ensemble methods. International Journal of Database Theory and
+Application, 9(8), 119-136. https://doi.org/10.14257/ijdta.2016.9.8.13
+[49] Križani´c, S. (2020). Educational data mining using cluster analysis and decision tree tech-
+nique:
+A case study. International Journal of Engineering Business Management, 12, 1-9.
+https://doi.org/10.1177/1847979020908675
+[50] Romero, C. and Ventura, S. (2020). Educational data mining and learning analytics: An updated
+survey. Wiley Interdisciplinary Reviews: Data Mining and Knowledge Discovery, 10(3), e1355.
+https://doi.org/10.1002/widm.1355
+[51] Shahiri, A. M., Husain, W., and Rashid, N. A. (2015). A review on predicting stu-
+dent’s performance using data mining techniques. Procedia Computer Science, 72, 414-422.
+https://doi.org/10.1016/j.procs.2015.12.157
+[52] Liao, S., He, Y., and Xu, D. (2024). Feature engineering for educational data mining: A systematic
+approach. arXiv preprint arXiv:2403.11395. https://doi.org/10.48550/arXiv.2403.11395
+[53] Liu, Q., Huang, Z., Yin, Y., Chen, E., Xiong, H., Su, Y., and Hu, G. (2024). Survey of Computerized
+Adaptive Testing: A machine learning perspective. Advances in Neural Information Processing
+Systems, 37, 1-42. https://doi.org/10.48550/arXiv.2404.00712
+39
+[54] Kuo, M., Sarker, S., Qian, L., Fu, Y., Li, X., and Dong, X. (2024). Deep knowledge tracing
+for personalized adaptive learning at historically black colleges and universities. arXiv preprint
+arXiv:2410.13876. https://doi.org/10.48550/arXiv.2410.13876
+[55] Piech,
+C.,
+Bassen,
+J.,
+Huang,
+J.,
+Ganguli,
+S.,
+Sahami,
+M.,
+Guibas,
+L.
+J.,
+and
+Sohl-Dickstein,
+J.
+(2015).
+Deep
+knowledge
+tracing.
+Advances
+in
+Neural
+Information
+Processing
+Systems,
+28,
+505-513.
+Available
+at:
+https://proceedings.neurips.cc/paper/2015/hash/bac9162b47c56fc8a4d2a519803d51b3-
+Abstract.html
+[56] Su, H., Zhang, J., Chen, S., Shi, Y., and Huang, T. (2023). Deep knowledge tracing with learning
+curves. Frontiers in Psychology, 14, 1150329. https://doi.org/10.3389/fpsyg.2023.1150329
+[57] Yang, E. and Dorneich, M. C. (2018). Affect-aware adaptive tutoring based on human-automation
+etiquette strategies. Human Factors, 60(4), 510-526. https://doi.org/10.1177/0018720818765266
+[58] Kabudi, T., Pappas, I., and Olsen, D. H. (2021). AI-enabled adaptive learning systems: A sys-
+tematic mapping of the literature. Computers and Education: Artificial Intelligence, 2, 100017.
+https://doi.org/10.1016/j.caeai.2021.100017
+[59] Petrovica, S. (2017). Emotion recognition in affective tutoring systems. Procedia Computer Sci-
+ence, 104, 111-116. https://doi.org/10.1016/j.procs.2017.01.085
+[60] Martinez, R., Garcia, L., and Fernandez, P. (2024). Systematic review of AI-driven intelligent
+tutoring systems: Effectiveness across diverse educational contexts. Computers & Education, 198,
+104-132. https://doi.org/10.1016/j.compedu.2023.104868
+[61] M. Al-gburi, “Design and Implementation of an AI-Driven Quiz Generator,” M.S. thesis, Faculty
+of Information Technology and Communication Sciences, Tampere University, Tampere, Finland,
+2025.
+[62] G. Biancini, A. Ferrato, and C. Limongelli, “Multiple-Choice Question Generation Using Large
+Language Models: Methodology and Educator Insights,” in Adjunct Proc. 32nd ACM Conf. User
+Modeling, Adaptation and Personalization (UMAP Adjunct ’24), Cagliari, Italy, Jul. 2024, doi:
+https://doi.org/10.1145/3631700.3665233.
+[63] S. Sahu, P. Verma, and P. Kashyap, “Automated Multiple Choice Question Generation from Trans-
+former Models,” RB J. Lib. & Information Science, vol. 13, no. 1, pp. 25–36, 2023.
+[64] R. Rodriguez-Torrealba, E. Garcia-Lopez, and A. Garcia-Cabot, “End-to-End Generation of
+Multiple-Choice Questions Using Text-to-Text Transfer Transformer Models,” Expert Systems with
+Applications, vol. 208, art. no. 118258, 2022, doi: https://doi.org/10.1016/j.eswa.2022.118258.
+[65] C. N. Hang, C. W. Tan, and P.-D. Yu, “MCQGen: A Large Language Model-Driven MCQ
+Generator for Personalized Learning,” IEEE Access, vol. 12, pp. 102261–102273, 2024, doi:
+https://doi.org/10.1109/ACCESS.2024.3420709.
+40
+[66] M. Xue, Z. Hu, L. Liu, K. Liao, S. Li, H. Han, M. Zhao, and C. Yin, "Strength-
+ened Symbol Binding Makes Large Language Models Reliable Multiple-Choice Selectors,"
+https://arxiv.org/html/2406.01026v2
+[67] R. Li and Y. Gao, "Anchored Answers: Unravelling Positional Bias in GPT-2’s Multiple-Choice
+Questions," https://doi.org/10.48550/arXiv.2405.03205
+[68] C. Zheng, H. Zhou, F. Meng, J. Zhou, and M. Huang, "On Large Language Models’ Selection Bias
+in Multi-Choice Questions," https://doi.org/10.48550/arXiv.2309.03882
+[69] Z. Wang, L. Chen, H. You, K. Xu, Y. He, W. Li, N. Codella, K.-W. Chang, and S.-F.
+Chang, "Dataset Bias Mitigation in Multiple-Choice Visual Question Answering and Beyond,"
+https://doi.org/10.48550/arXiv.2310.14670
+41
