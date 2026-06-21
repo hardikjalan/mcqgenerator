@@ -44,6 +44,9 @@ export default function FacultyDashboard() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [genError, setGenError] = useState<string | null>(null)
 
+  type ExtractedSource = { name: string; status: string; text: string; error: string | null }
+  const [extractedSources, setExtractedSources] = useState<ExtractedSource[]>([])
+
   // Fetch user on mount
   useEffect(() => {
     const supabase = createClient()
@@ -144,14 +147,64 @@ export default function FacultyDashboard() {
     config.topicsCovered.trim().length > 0 &&
     config.learningObjective.trim().length > 0
 
-  // ── Generate (stub — wire to AI API in next step) ──────────────────────────
+  // ── Generate — calls FastAPI backend ─────────────────────────────────────
   const handleGenerate = async () => {
     if (!isReady || isGenerating) return
     setGenError(null)
+    setExtractedSources([])
     setIsGenerating(true)
-    await new Promise(r => setTimeout(r, 2500))
-    setIsGenerating(false)
-    setGenError('AI generation endpoint not yet connected. Your configuration has been captured.')
+
+    try {
+      let filesPayload: { name: string; signedUrl: string }[] = []
+
+      // Generate signed URLs for all successfully uploaded files
+      if (activeTab === 'upload') {
+        const supabase = createClient()
+        const doneFiles = uploadedFiles.filter(f => f.status === 'done' && f.storagePath)
+        const signed = await Promise.all(
+          doneFiles.map(f =>
+            supabase.storage.from('faculty-documents').createSignedUrl(f.storagePath!, 300)
+          )
+        )
+        filesPayload = doneFiles.map((f, i) => ({
+          name: f.file.name,
+          signedUrl: signed[i].data?.signedUrl ?? '',
+        })).filter(f => f.signedUrl)
+      }
+
+      const body = {
+        sourceType: activeTab,
+        textContent: activeTab === 'text' ? textContent : null,
+        files: filesPayload.length > 0 ? filesPayload : null,
+        config: {
+          subjectName: config.subjectName,
+          topicsCovered: config.topicsCovered,
+          learningObjective: config.learningObjective,
+          gradeLevel: config.gradeLevel,
+          questionType: config.questionType,
+          questionCount: config.questionCount,
+          timeLimit: config.timeLimit,
+        },
+      }
+
+      const res = await fetch('http://localhost:8000/generate-assessment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail ?? `Server error: ${res.status}`)
+      }
+
+      const data = await res.json()
+      setExtractedSources(data.extracted_sources ?? [])
+    } catch (err: unknown) {
+      setGenError(err instanceof Error ? err.message : 'Something went wrong. Is the backend running?')
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   const setConf = (patch: Partial<QuizConfig>) => setConfig(p => ({ ...p, ...patch }))
@@ -490,6 +543,53 @@ export default function FacultyDashboard() {
           </div>
 
         </section>
+        {/* ═══ STEP 3 — Extracted Content Preview ══════════════════════════════ */}
+        {extractedSources.length > 0 && (
+          <section className="rounded-2xl border border-white/[0.06] bg-[#070d1a]/60 backdrop-blur-sm p-6 sm:p-8 space-y-5">
+            <div className="pb-2 border-b border-white/[0.05]">
+              <div className="flex items-center gap-2">
+                <span className="text-indigo-400 text-base">✦</span>
+                <h2 className="text-base font-bold text-white font-display">Extracted Content</h2>
+                <span className="ml-auto text-[11px] text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                  {extractedSources.filter(s => s.status === 'success').length}/{extractedSources.length} extracted
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5 ml-6">Text successfully pulled from your sources — ready for the next RAG step</p>
+            </div>
+
+            <div className="space-y-4">
+              {extractedSources.map((src, i) => (
+                <div key={i} className={`rounded-xl border p-4 space-y-2 ${
+                  src.status === 'success'
+                    ? 'border-emerald-500/20 bg-emerald-500/5'
+                    : 'border-rose-500/20 bg-rose-500/5'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold ${
+                      src.status === 'success' ? 'text-emerald-400' : 'text-rose-400'
+                    }`}>
+                      {src.status === 'success' ? '✓' : '✗'}
+                    </span>
+                    <span className="text-sm font-semibold text-slate-200 truncate">{src.name}</span>
+                    {src.status === 'success' && (
+                      <span className="ml-auto text-[10px] text-slate-500 whitespace-nowrap">
+                        {src.text.length.toLocaleString()} chars
+                      </span>
+                    )}
+                  </div>
+                  {src.status === 'error' ? (
+                    <p className="text-xs text-rose-400 pl-4">{src.error}</p>
+                  ) : (
+                    <pre className="text-[11px] text-slate-400 bg-black/30 rounded-lg p-3 max-h-40 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                      {src.text.slice(0, 800)}{src.text.length > 800 ? '…' : ''}
+                    </pre>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
       </main>
     </div>
   )
