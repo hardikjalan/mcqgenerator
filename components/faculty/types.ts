@@ -25,7 +25,14 @@ export type QuizConfig = {
 }
 
 export const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.pptx', '.png', '.jpg', '.jpeg']
-export const MAX_FILE_SIZE = 10 * 1024 * 1024
+
+// Per-file limit (capped at the cumulative ceiling so a single file can never
+// silently violate the batch limit). Must stay ≤ MAX_CUMULATIVE_SIZE.
+export const MAX_FILE_SIZE = 5 * 1024 * 1024  // 5 MB
+
+// Cumulative limit across ALL files in a single generate request.
+// Must match MAX_CUMULATIVE_SIZE_MB in backend/main.py.
+export const MAX_CUMULATIVE_SIZE = 5 * 1024 * 1024  // 5 MB
 
 export const ALLOWED_MIME_TYPES = [
   'application/pdf',
@@ -55,7 +62,7 @@ export function getFileExt(filename: string) {
 }
 
 export function validateFile(file: File): string | null {
-  if (file.size > MAX_FILE_SIZE) return `Exceeds 10 MB limit (${formatBytes(file.size)})`
+  if (file.size > MAX_FILE_SIZE) return `Exceeds 5 MB per-file limit (${formatBytes(file.size)})`
   const ok =
     ALLOWED_MIME_TYPES.includes(file.type) ||
     ALLOWED_EXTENSIONS.some(ext => file.name.toLowerCase().endsWith(ext))

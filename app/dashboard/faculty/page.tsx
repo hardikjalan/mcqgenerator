@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   UploadedFile, ContentTab, QuestionType, QuizConfig,
   QUESTION_COUNTS, QUESTION_TYPES,
-  validateFile, getFileExt,
+  validateFile, getFileExt, formatBytes, MAX_CUMULATIVE_SIZE,
 } from '@/components/faculty/types'
 import { SectionLabel, FormInput } from '@/components/faculty/form-fields'
 import { FileUploadZone } from '@/components/faculty/FileUploadZone'
@@ -101,19 +101,50 @@ export default function FacultyDashboard() {
   }, [user])
 
   const processFiles = useCallback((raw: FileList | File[]) => {
+    // Bytes already committed (uploading or done) — errors don't count
+    const alreadyUsed = uploadedFiles
+      .filter(f => f.status !== 'error')
+      .reduce((sum, f) => sum + f.file.size, 0)
+
+    let runningTotal = alreadyUsed
     const entries: UploadedFile[] = Array.from(raw).map(file => {
-      const err = validateFile(file)
+      // 1. Per-file validation (type + individual size limit)
+      const perFileErr = validateFile(file)
+      if (perFileErr) {
+        return {
+          id: `${Date.now()}_${Math.random()}`,
+          file,
+          status: 'error' as const,
+          progress: 0,
+          errorMsg: perFileErr,
+        }
+      }
+
+      // 2. Cumulative size guard
+      runningTotal += file.size
+      if (runningTotal > MAX_CUMULATIVE_SIZE) {
+        const limitMB = (MAX_CUMULATIVE_SIZE / (1024 * 1024)).toFixed(0)
+        const totalMB = (runningTotal / (1024 * 1024)).toFixed(1)
+        return {
+          id: `${Date.now()}_${Math.random()}`,
+          file,
+          status: 'error' as const,
+          progress: 0,
+          errorMsg: `Batch limit reached — total ${totalMB} MB exceeds ${limitMB} MB cap`,
+        }
+      }
+
       return {
         id: `${Date.now()}_${Math.random()}`,
         file,
-        status: err ? 'error' : 'uploading',
+        status: 'uploading' as const,
         progress: 0,
-        errorMsg: err ?? undefined,
       }
     })
+
     setUploadedFiles(prev => [...prev, ...entries])
     entries.filter(e => e.status === 'uploading').forEach(e => uploadToStorage(e))
-  }, [uploadToStorage])
+  }, [uploadToStorage, uploadedFiles])
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
@@ -169,6 +200,7 @@ export default function FacultyDashboard() {
         filesPayload = doneFiles.map((f, i) => ({
           name: f.file.name,
           signedUrl: signed[i].data?.signedUrl ?? '',
+          size_bytes: f.file.size,
         })).filter(f => f.signedUrl)
       }
 
@@ -199,7 +231,8 @@ export default function FacultyDashboard() {
       }
 
       const data = await res.json()
-      setExtractedSources(data.extracted_sources ?? [])
+      // Backend wraps success payload under "data" key via success_response()
+      setExtractedSources(data.data?.extracted_sources ?? [])
     } catch (err: unknown) {
       setGenError(err instanceof Error ? err.message : 'Something went wrong. Is the backend running?')
     } finally {

@@ -115,7 +115,7 @@ export function FileUploadZone({
           <p className="text-sm font-semibold text-slate-300">
             {isDragging ? 'Release to upload' : 'Drag & drop your files here'}
           </p>
-          <p className="text-xs text-slate-600 mt-1">or click to browse · max 10 MB per file</p>
+          <p className="text-xs text-slate-600 mt-1">or click to browse · max 5 MB per file · 5 MB total</p>
         </div>
         <div className="flex gap-1.5">
           {['PDF', 'DOCX', 'PPTX', 'PNG', 'JPG'].map(ext => (
