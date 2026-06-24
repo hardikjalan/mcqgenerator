@@ -5,7 +5,7 @@ Extracts text from PDF files. Uses PyMuPDF for native text extraction and
 falls back to Gemini OCR for scanned or image-heavy pages.
 
 Raises structured DocumentProcessingError subclasses on all failure paths.
-Internal errors are logged in full; only sanitized messages reach the caller.
+Internal errors are logged once here; callers must not re-log them.
 """
 
 import os
@@ -16,8 +16,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import fitz  # PyMuPDF
 from loaders.pdf_loader import PDFLoader
 from extractors.gemini_ocr import extract_text_from_image
-from exceptions import DocumentProcessingError, TextExtractionError, OCRError
-from logger import get_logger
+from exceptions import DocumentProcessingError, TextExtractionError
+from logger import get_logger, is_debug_mode
 
 logger = get_logger(__name__)
 
@@ -63,22 +63,24 @@ class PDFExtractor:
         ------
         DocumentProcessingError subclasses on failure.
         """
-        logger.info("Starting PDF extraction: %s", self.file_path)
+        fname = os.path.basename(self.file_path)
+        logger.info("[PDF] Starting: %s", fname)
 
-        # PDFLoader raises structured exceptions on failure — let them propagate
+        # PDFLoader raises structured exceptions on failure — let them propagate.
+        # Loader logs only at DEBUG level; no duplicate error here.
         doc = self.loader.load()
 
         text_content = []
         total_text_chars = 0
         total_images_found = 0
-        ocr_results = []
+        ocr_chars = 0
 
         try:
             for page_num, page in enumerate(doc, start=1):
                 try:
                     page_text = page.get_text().strip()
                 except Exception as e:
-                    logger.warning("Failed to get text from PDF page %d: %s", page_num, e)
+                    logger.debug("[PDF] Page %d — get_text failed: %s", page_num, e)
                     page_text = ""
 
                 page_area = page.rect.width * page.rect.height
@@ -87,7 +89,7 @@ class PDFExtractor:
                 try:
                     image_info = page.get_image_info()
                 except Exception as e:
-                    logger.warning("Failed to get image info from PDF page %d: %s", page_num, e)
+                    logger.debug("[PDF] Page %d — get_image_info failed: %s", page_num, e)
                     image_info = []
 
                 qualifying_images = []
@@ -104,10 +106,7 @@ class PDFExtractor:
 
                 total_image_area = sum(img["area"] for img in qualifying_images)
 
-                is_scanned = (
-                    len(page_text) < 50
-                    and len(qualifying_images) > 0
-                )
+                is_scanned = (len(page_text) < 50 and len(qualifying_images) > 0)
                 is_image_heavy = (total_image_area / page_area) > 0.75 if page_area > 0 else False
 
                 if qualifying_images:
@@ -121,20 +120,18 @@ class PDFExtractor:
                         del pix
 
                         ocr_text = extract_text_from_image(image_bytes, mime_type="image/jpeg")
-                        ocr_char_count = len(ocr_text) if ocr_text else 0
+                        chars = len(ocr_text) if ocr_text else 0
                         self.images_processed += 1
-                        ocr_results.append((self.images_processed, ocr_char_count))
+                        ocr_chars += chars
 
-                        reason = (
-                            "scanned" if is_scanned
-                            else "image-heavy (>75%)"
-                        )
-                        logger.info("[Page %d OCR] Reason: %s → %d chars", page_num, reason, ocr_char_count)
+                        reason = "scanned" if is_scanned else "image-heavy (>75%)"
+                        logger.info("[PDF] Page %d OCR (%s) → %d chars", page_num, reason, chars)
 
                         if ocr_text:
                             text_content.append(ocr_text)
                     except Exception as e:
-                        logger.warning("[Page %d OCR] Failed — skipping: %s", page_num, e, exc_info=True)
+                        # OCR is best-effort — warn and continue without stack trace
+                        logger.warning("[PDF] Page %d OCR failed — skipping: %s", page_num, e)
                 else:
                     if page_text:
                         total_text_chars += len(page_text)
@@ -143,7 +140,10 @@ class PDFExtractor:
         except DocumentProcessingError:
             raise
         except Exception as e:
-            logger.error("Unexpected error during PDF text extraction: %s — %s", self.file_path, e, exc_info=True)
+            logger.error(
+                "[PDF] Unexpected extraction error: %s", e,
+                exc_info=is_debug_mode(),
+            )
             raise TextExtractionError(
                 message=f"Unexpected error extracting text from PDF: {e}",
                 user_message="An error occurred while reading the PDF. The file may be password-protected or corrupted.",
@@ -156,19 +156,19 @@ class PDFExtractor:
 
         final_text = "\n".join(text_content).strip()
 
-        # ── Structured logging ─────────────────────────────────────────────────
-        logger.info("[PDF Text Layer] %d chars", total_text_chars)
-        logger.info("[Images Found] %d", total_images_found)
-        for i, (_, chars) in enumerate(ocr_results, start=1):
-            logger.info("[OCR Image %d] %d chars", i, chars)
-        logger.info("[Final Combined Text] %d chars from: %s", len(final_text), self.file_path)
+        # ── Single-line summary ────────────────────────────────────────────────
+        logger.info(
+            "[PDF] Done — %s | %d text chars | %d image(s) found | %d OCR chars | %d total chars",
+            fname, total_text_chars, total_images_found, ocr_chars, len(final_text),
+        )
 
-        # ── Debug file ─────────────────────────────────────────────────────────
-        try:
-            with open(DEBUG_OUTPUT_PATH, "w", encoding="utf-8") as f:
-                f.write(final_text)
-            logger.debug("Debug file saved: %s", os.path.abspath(DEBUG_OUTPUT_PATH))
-        except OSError as e:
-            logger.warning("Could not write debug file: %s", e)
+        # ── Debug file (written only in DEBUG mode) ────────────────────────────
+        if is_debug_mode():
+            try:
+                with open(DEBUG_OUTPUT_PATH, "w", encoding="utf-8") as f:
+                    f.write(final_text)
+                logger.debug("[PDF] Debug file saved: %s", os.path.abspath(DEBUG_OUTPUT_PATH))
+            except OSError as e:
+                logger.debug("[PDF] Could not write debug file: %s", e)
 
         return final_text

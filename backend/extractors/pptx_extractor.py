@@ -5,6 +5,7 @@ Extracts text from PPTX files. Iterates slides/shapes for text and calls
 Gemini OCR for large presentation images.
 
 Raises structured DocumentProcessingError subclasses on all failure paths.
+Internal errors are logged once here; callers must not re-log them.
 """
 
 import os
@@ -15,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from loaders.pptx_loader import PptxLoader
 from extractors.gemini_ocr import extract_text_from_image
 from exceptions import DocumentProcessingError, TextExtractionError
-from logger import get_logger
+from logger import get_logger, is_debug_mode
 
 logger = get_logger(__name__)
 
@@ -58,15 +59,16 @@ class PptxExtractor:
         ------
         DocumentProcessingError subclasses on failure.
         """
-        logger.info("Starting PPTX extraction: %s", self.file_path)
+        fname = os.path.basename(self.file_path)
+        logger.info("[PPTX] Starting: %s", fname)
 
-        # PptxLoader raises structured exceptions on failure — let them propagate
+        # PptxLoader raises structured exceptions on failure — let them propagate.
         prs = self.loader.load()
 
         text_content = []
         total_text_chars = 0
         total_images_found = 0
-        ocr_results = []
+        ocr_chars = 0
 
         try:
             slide_area = (
@@ -110,30 +112,32 @@ class PptxExtractor:
                                     )
 
                                     ocr_text = extract_text_from_image(image_bytes, mime_type=mime_type)
-                                    ocr_char_count = len(ocr_text) if ocr_text else 0
+                                    chars = len(ocr_text) if ocr_text else 0
                                     self.images_processed += 1
-                                    ocr_results.append((self.images_processed, ocr_char_count))
+                                    ocr_chars += chars
 
                                     logger.info(
-                                        "[Slide %d Image %d OCR] %s → %d chars",
-                                        slide_num, self.images_processed, reason, ocr_char_count,
+                                        "[PPTX] Slide %d image %d OCR (%s) → %d chars",
+                                        slide_num, self.images_processed, reason, chars,
                                     )
 
                                     if ocr_text:
                                         image_ocr_text.append(ocr_text)
                                 except Exception as img_ex:
+                                    # OCR is best-effort — warn without stack trace
                                     logger.warning(
-                                        "[Slide %d Image OCR] Failed — skipping: %s",
-                                        slide_num, img_ex, exc_info=True,
+                                        "[PPTX] Slide %d image OCR failed — skipping: %s",
+                                        slide_num, img_ex,
                                     )
 
                         elif hasattr(shape, "text") and shape.text.strip():
                             slide_text.append(shape.text.strip())
 
                     except Exception as shape_ex:
+                        # Individual shape errors are non-fatal — warn and continue
                         logger.warning(
-                            "[Slide %d] Error processing shape — skipping: %s",
-                            slide_num, shape_ex, exc_info=True,
+                            "[PPTX] Slide %d shape error — skipping: %s",
+                            slide_num, shape_ex,
                         )
 
                 if slide_text:
@@ -147,7 +151,8 @@ class PptxExtractor:
             raise
         except Exception as e:
             logger.error(
-                "Unexpected error during PPTX text extraction: %s — %s", self.file_path, e, exc_info=True
+                "[PPTX] Unexpected extraction error: %s", e,
+                exc_info=is_debug_mode(),
             )
             raise TextExtractionError(
                 message=f"Unexpected error extracting text from PPTX: {e}",
@@ -156,19 +161,19 @@ class PptxExtractor:
 
         final_text = "\n\n".join(text_content).strip()
 
-        # ── Structured logging ─────────────────────────────────────────────────
-        logger.info("[PPTX Text Layer] %d chars", total_text_chars)
-        logger.info("[Images Found] %d", total_images_found)
-        for i, (_, chars) in enumerate(ocr_results, start=1):
-            logger.info("[OCR Image %d] %d chars", i, chars)
-        logger.info("[Final Combined Text] %d chars from: %s", len(final_text), self.file_path)
+        # ── Single-line summary ────────────────────────────────────────────────
+        logger.info(
+            "[PPTX] Done — %s | %d text chars | %d image(s) found | %d OCR chars | %d total chars",
+            fname, total_text_chars, total_images_found, ocr_chars, len(final_text),
+        )
 
-        # ── Debug file ─────────────────────────────────────────────────────────
-        try:
-            with open(DEBUG_OUTPUT_PATH, "w", encoding="utf-8") as f:
-                f.write(final_text)
-            logger.debug("Debug file saved: %s", os.path.abspath(DEBUG_OUTPUT_PATH))
-        except OSError as e:
-            logger.warning("Could not write debug file: %s", e)
+        # ── Debug file (written only in DEBUG mode) ────────────────────────────
+        if is_debug_mode():
+            try:
+                with open(DEBUG_OUTPUT_PATH, "w", encoding="utf-8") as f:
+                    f.write(final_text)
+                logger.debug("[PPTX] Debug file saved: %s", os.path.abspath(DEBUG_OUTPUT_PATH))
+            except OSError as e:
+                logger.debug("[PPTX] Could not write debug file: %s", e)
 
         return final_text

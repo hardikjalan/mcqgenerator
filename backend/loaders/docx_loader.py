@@ -3,6 +3,10 @@ docx_loader.py
 ==============
 Loads a DOCX file using python-docx, with full input validation and
 corrupted-file detection (DOCX files are ZIP archives).
+
+Validation failures raise structured exceptions; callers are responsible
+for logging them at the appropriate level. This module only logs at DEBUG
+for expected failures and ERROR for truly unexpected ones.
 """
 
 import os
@@ -13,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import docx
 from exceptions import FileNotFoundError, UnsupportedFileTypeError, CorruptedFileError
-from logger import get_logger
+from logger import get_logger, is_debug_mode
 
 logger = get_logger(__name__)
 
@@ -31,13 +35,11 @@ class DocxLoader:
         """Run all pre-load validation checks."""
         # 1. File existence
         if not os.path.exists(self.file_path):
-            logger.error("DOCX file not found: %s", self.file_path)
             raise FileNotFoundError(self.file_path)
 
         # 2. Extension check
         ext = self.file_path.rsplit(".", 1)[-1].lower() if "." in self.file_path else ""
         if ext not in ALLOWED_EXTENSIONS:
-            logger.error("Unsupported extension '%s' passed to DocxLoader: %s", ext, self.file_path)
             raise UnsupportedFileTypeError(ext)
 
         # 3. Read file size (used by empty-file check below)
@@ -45,12 +47,10 @@ class DocxLoader:
 
         # 4. Empty file check
         if size_bytes == 0:
-            logger.error("DOCX file is empty: %s", self.file_path)
             raise CorruptedFileError(self.file_path, "file is empty")
 
         # 5. ZIP integrity check (DOCX is a ZIP archive)
         if not zipfile.is_zipfile(self.file_path):
-            logger.error("DOCX file is not a valid ZIP archive: %s", self.file_path)
             raise CorruptedFileError(self.file_path, "not a valid DOCX file (failed ZIP integrity check)")
 
     def load(self) -> docx.Document:
@@ -72,13 +72,13 @@ class DocxLoader:
             If the file fails ZIP validation or python-docx cannot parse it.
         """
         self._validate()
-        logger.info("Loading DOCX: %s", self.file_path)
+        logger.debug("[DOCX] Loading: %s", self.file_path)
 
         try:
             document = docx.Document(self.file_path)
         except Exception as e:
-            logger.error("python-docx could not open DOCX: %s — %s", self.file_path, e, exc_info=True)
+            logger.debug("[DOCX] python-docx parse error: %s", e)
             raise CorruptedFileError(self.file_path, str(e)) from e
 
-        logger.info("DOCX loaded successfully — %d paragraphs: %s", len(document.paragraphs), self.file_path)
+        logger.debug("[DOCX] Loaded — %d paragraphs", len(document.paragraphs))
         return document

@@ -3,6 +3,10 @@ pdf_loader.py
 =============
 Loads a PDF file using PyMuPDF (fitz), with full input validation and
 corrupted-file detection before the document is opened.
+
+Validation failures raise structured exceptions; callers are responsible
+for logging them at the appropriate level. This module only logs at DEBUG
+for expected failures and ERROR for truly unexpected ones.
 """
 
 import os
@@ -14,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import fitz  # PyMuPDF
 from exceptions import FileNotFoundError, CorruptedFileError
-from logger import get_logger
+from logger import get_logger, is_debug_mode
 
 logger = get_logger(__name__)
 
@@ -32,14 +36,12 @@ class PDFLoader:
         """Run all pre-load validation checks."""
         # 1. File existence
         if not os.path.exists(self.file_path):
-            logger.error("PDF file not found: %s", self.file_path)
             raise FileNotFoundError(self.file_path)
 
         # 2. Extension check
         ext = self.file_path.rsplit(".", 1)[-1].lower() if "." in self.file_path else ""
         if ext not in ALLOWED_EXTENSIONS:
             from exceptions import UnsupportedFileTypeError
-            logger.error("Unsupported extension '%s' passed to PDFLoader: %s", ext, self.file_path)
             raise UnsupportedFileTypeError(ext)
 
         # 3. Read file size (used by empty-file check below)
@@ -47,7 +49,6 @@ class PDFLoader:
 
         # 4. Empty file check
         if size_bytes == 0:
-            logger.error("PDF file is empty: %s", self.file_path)
             raise CorruptedFileError(self.file_path, "file is empty")
 
         # 5. PDF magic bytes check (%PDF header)
@@ -55,12 +56,10 @@ class PDFLoader:
             with open(self.file_path, "rb") as f:
                 header = f.read(5)
             if not header.startswith(b"%PDF"):
-                logger.error("File does not have PDF magic bytes: %s", self.file_path)
                 raise CorruptedFileError(self.file_path, "not a valid PDF file (missing %PDF header)")
         except CorruptedFileError:
             raise
         except OSError as e:
-            logger.error("Could not read PDF file header: %s — %s", self.file_path, e)
             raise CorruptedFileError(self.file_path, str(e))
 
     def load(self) -> fitz.Document:
@@ -80,21 +79,21 @@ class PDFLoader:
             If the file is empty, not a valid PDF, or cannot be opened by PyMuPDF.
         """
         self._validate()
-        logger.info("Loading PDF: %s", self.file_path)
+        logger.debug("[PDF] Loading: %s", self.file_path)
 
         try:
             doc = fitz.open(self.file_path)
         except fitz.FileDataError as e:
-            logger.error("PyMuPDF could not open PDF (corrupted?): %s — %s", self.file_path, e, exc_info=True)
+            logger.debug("[PDF] PyMuPDF parse error: %s", e)
             raise CorruptedFileError(self.file_path, "PyMuPDF could not parse the file") from e
         except Exception as e:
-            logger.error("Unexpected error opening PDF: %s — %s", self.file_path, e, exc_info=True)
+            # Truly unexpected — log with full trace
+            logger.error("[PDF] Unexpected open error: %s", e, exc_info=is_debug_mode())
             raise CorruptedFileError(self.file_path, str(e)) from e
 
         if doc.page_count == 0:
             doc.close()
-            logger.warning("PDF has no pages: %s", self.file_path)
             raise CorruptedFileError(self.file_path, "PDF contains no pages")
 
-        logger.info("PDF loaded successfully — %d pages: %s", doc.page_count, self.file_path)
+        logger.debug("[PDF] Loaded — %d pages: %s", doc.page_count, self.file_path)
         return doc
