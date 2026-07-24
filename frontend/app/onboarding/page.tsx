@@ -2,46 +2,18 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { ArrowRight, Check, GraduationCap, Presentation } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { OnboardingRole } from '@/types/database'
+import { Wordmark } from '@/components/ui/Logo'
+import { Button } from '@/components/ui/Button'
+import { Alert } from '@/components/ui/Alert'
 
-// ── Icons ─────────────────────────────────────────────────────────────────────
-const LogoIcon = () => (
-  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" className="text-indigo-400">
-    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-)
+const ROLES: { key: OnboardingRole; label: string; blurb: string; Icon: typeof GraduationCap }[] = [
+  { key: 'student', label: 'Student', blurb: 'Take quizzes set for you', Icon: GraduationCap },
+  { key: 'faculty', label: 'Teacher', blurb: 'Create and publish quizzes', Icon: Presentation },
+]
 
-const StudentIcon = () => (
-  <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M12 14l9-5-9-5-9 5 9 5z" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M21 10v4" strokeLinecap="round" />
-    <circle cx="21" cy="15" r="1" fill="currentColor" />
-  </svg>
-)
-
-const TeacherIcon = () => (
-  <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <rect x="3" y="3" width="18" height="14" rx="2" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M8 21h8M12 17v4" strokeLinecap="round" />
-    <path d="M9 10l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-)
-
-const CheckIcon = () => (
-  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5">
-    <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-)
-
-const ArrowRightIcon = () => (
-  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-)
-
-// ── Page ──────────────────────────────────────────────────────────────────────
 export default function OnboardingPage() {
   const router = useRouter()
   const [selected, setSelected] = useState<OnboardingRole | null>(null)
@@ -49,7 +21,7 @@ export default function OnboardingPage() {
   const [error, setError] = useState<string | null>(null)
   const [googleName, setGoogleName] = useState('')
 
-  // Grab name from Google so we can store it via the RPC
+  // Grab the name from Google so we can store it via the RPC
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
       setGoogleName(data.user?.user_metadata?.full_name ?? '')
@@ -63,160 +35,113 @@ export default function OnboardingPage() {
 
     try {
       const supabase = createClient()
-      const { error: rpcError } = await supabase.rpc('set_profile_role', {
+      // Returns the role that ended up stored. Checking it matters: the old
+      // version returned nothing, so a save that matched zero rows looked
+      // identical to a real one — and the proxy then bounced the user
+      // straight back here, with nothing on screen to explain why.
+      const { data: savedRole, error: rpcError } = await supabase.rpc('set_profile_role', {
         p_role: selected,
         p_full_name: googleName,
         p_institution: '',
       })
       if (rpcError) throw rpcError
-      router.push(`/dashboard/${selected}`)
-    } catch (err: any) {
+      if (!savedRole) {
+        throw new Error('Your role didn’t save. Please try again, or contact support if it keeps happening.')
+      }
+
+      // Follow the stored role rather than the clicked one — if a role was
+      // already set, that's where the proxy will send us anyway.
+      router.push(`/dashboard/${savedRole}`)
+    } catch (err: unknown) {
       console.error('Role assignment failed:', err)
-      setError(err?.message ?? 'Something went wrong. Please try again.')
+      setError(err instanceof Error ? err.message : 'That didn’t save. Please try again.')
       setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center px-4 selection:bg-indigo-500/30 selection:text-white">
+    <div className="min-h-screen flex flex-col items-center justify-center px-5 py-12">
+      <div className="w-full max-w-md flex flex-col gap-8">
 
-      {/* Background */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-indigo-600/7 blur-[160px]" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[55%] h-[55%] rounded-full bg-purple-500/5 blur-[140px]" />
-        <div
-          className="absolute inset-0 opacity-[0.013]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,0.15) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.15) 1px,transparent 1px)',
-            backgroundSize: '44px 44px',
-          }}
-        />
-      </div>
+        <Wordmark size={32} className="self-center" />
 
-      <div className="relative z-10 w-full max-w-md">
+        <div className="bg-surface border border-border-subtle rounded-xl shadow-md p-6 sm:p-7 flex flex-col gap-6">
 
-        {/* Logo */}
-        <div className="flex items-center gap-2.5 mb-12 justify-center">
-          <div className="p-2 rounded-xl bg-slate-900 border border-slate-800">
-            <LogoIcon />
-          </div>
-          <div>
-            <span className="text-lg font-bold text-white tracking-tight">Cognira</span>
-            <span className="block text-[9px] text-slate-600 uppercase tracking-widest font-semibold">Cognition & Intelligence</span>
-          </div>
-        </div>
-
-        {/* Card */}
-        <div className="rounded-3xl p-8 glass-effect shadow-2xl shadow-black/60 border border-white/[0.06] space-y-7">
-
-          <div className="text-center space-y-1.5">
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">Who are you?</h1>
-            <p className="text-sm text-slate-500">Choose your role to get started. This can't be changed later.</p>
+          <div className="flex flex-col gap-1.5">
+            <h1 className="text-2xl font-extrabold tracking-tight text-text">
+              How will you use Cognira?
+            </h1>
+            <p className="text-sm text-text-2">
+              This sets up your account. You can’t change it later, so pick carefully.
+            </p>
           </div>
 
-          {/* Role cards */}
-          <div className="grid grid-cols-2 gap-4">
-
-            {/* Student */}
-            <button
-              id="role-student"
-              onClick={() => setSelected('student')}
-              disabled={isSubmitting}
-              className={`group relative flex flex-col items-center gap-4 p-7 rounded-2xl border-2 text-center transition-all duration-200 cursor-pointer ${
-                selected === 'student'
-                  ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_40px_rgba(99,102,241,0.14)]'
-                  : 'border-slate-700/60 bg-slate-900/30 hover:border-indigo-500/40 hover:bg-indigo-500/5'
-              }`}
-            >
-              <div className={`p-3 rounded-xl transition-colors duration-200 ${
-                selected === 'student' ? 'bg-indigo-500/20 text-indigo-300' : 'bg-slate-800 text-slate-500 group-hover:text-indigo-400'
-              }`}>
-                <StudentIcon />
-              </div>
-              <div>
-                <div className={`font-bold text-sm transition-colors ${selected === 'student' ? 'text-white' : 'text-slate-300'}`}>
-                  Student
-                </div>
-                <div className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                  Learner at any level
-                </div>
-              </div>
-              {selected === 'student' && (
-                <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center">
-                  <CheckIcon />
-                </div>
-              )}
-            </button>
-
-            {/* Teacher */}
-            <button
-              id="role-teacher"
-              onClick={() => setSelected('faculty')}
-              disabled={isSubmitting}
-              className={`group relative flex flex-col items-center gap-4 p-7 rounded-2xl border-2 text-center transition-all duration-200 cursor-pointer ${
-                selected === 'faculty'
-                  ? 'border-purple-500 bg-purple-500/10 shadow-[0_0_40px_rgba(139,92,246,0.14)]'
-                  : 'border-slate-700/60 bg-slate-900/30 hover:border-purple-500/40 hover:bg-purple-500/5'
-              }`}
-            >
-              <div className={`p-3 rounded-xl transition-colors duration-200 ${
-                selected === 'faculty' ? 'bg-purple-500/20 text-purple-300' : 'bg-slate-800 text-slate-500 group-hover:text-purple-400'
-              }`}>
-                <TeacherIcon />
-              </div>
-              <div>
-                <div className={`font-bold text-sm transition-colors ${selected === 'faculty' ? 'text-white' : 'text-slate-300'}`}>
-                  Teacher
-                </div>
-                <div className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                  Educator or instructor
-                </div>
-              </div>
-              {selected === 'faculty' && (
-                <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center">
-                  <CheckIcon />
-                </div>
-              )}
-            </button>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="p-3 rounded-xl border border-rose-500/20 bg-rose-500/8 text-[11px] text-rose-300 flex items-start gap-2">
-              <span className="flex-shrink-0">⚠️</span>
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Confirm button */}
-          <button
-            id="confirm-role"
-            onClick={handleConfirm}
-            disabled={!selected || isSubmitting}
-            className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer ${
-              selected && !isSubmitting
-                ? selected === 'faculty'
-                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-900/30'
-                  : 'btn-primary-glow text-white'
-                : 'bg-slate-900/50 border border-slate-800 text-slate-600 cursor-not-allowed'
-            }`}
+          <div
+            role="radiogroup"
+            aria-label="Choose your role"
+            className="grid grid-cols-2 gap-3"
           >
-            {isSubmitting ? (
-              <>
-                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Setting up your workspace…
-              </>
-            ) : (
-              <>
-                {selected === 'faculty' ? 'Enter Teacher Dashboard' : selected === 'student' ? 'Enter Student Dashboard' : 'Select a role to continue'}
-                {selected && <ArrowRightIcon />}
-              </>
-            )}
-          </button>
+            {ROLES.map(({ key, label, blurb, Icon }) => {
+              const active = selected === key
+              return (
+                <button
+                  key={key}
+                  id={`role-${key}`}
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setSelected(key)}
+                  disabled={isSubmitting}
+                  className={[
+                    'group relative flex flex-col items-start gap-3 p-4 rounded-lg border text-left',
+                    'transition-colors duration-150 cursor-pointer disabled:opacity-50',
+                    active
+                      ? 'border-accent bg-accent-soft'
+                      : 'border-border-strong bg-surface hover:border-text-3 hover:bg-surface-2',
+                  ].join(' ')}
+                >
+                  <span
+                    className={[
+                      'w-9 h-9 rounded-md flex items-center justify-center transition-colors',
+                      active ? 'bg-accent text-on-accent' : 'bg-surface-2 text-text-3 group-hover:text-text-2',
+                    ].join(' ')}
+                  >
+                    <Icon className="w-4.5 h-4.5" aria-hidden="true" />
+                  </span>
+
+                  <span className="flex flex-col gap-0.5">
+                    <span className={`text-base font-bold ${active ? 'text-accent' : 'text-text'}`}>
+                      {label}
+                    </span>
+                    <span className="text-xs text-text-2 leading-snug">{blurb}</span>
+                  </span>
+
+                  {active && (
+                    <span className="absolute top-3 right-3 w-4 h-4 rounded-full bg-accent text-on-accent flex items-center justify-center">
+                      <Check className="w-2.5 h-2.5" strokeWidth={3.5} aria-hidden="true" />
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {error && <Alert tone="error">{error}</Alert>}
+
+          <Button
+            id="confirm-role"
+            block
+            size="lg"
+            disabled={!selected}
+            loading={isSubmitting}
+            onClick={handleConfirm}
+          >
+            {isSubmitting
+              ? 'Setting up your account…'
+              : selected
+              ? `Continue as ${selected === 'faculty' ? 'a teacher' : 'a student'}`
+              : 'Pick one to continue'}
+            {selected && !isSubmitting && <ArrowRight className="w-4 h-4" aria-hidden="true" />}
+          </Button>
         </div>
       </div>
     </div>

@@ -1,20 +1,27 @@
-// Reusable form field primitives — shared across all dashboard pages
+// Form primitives — shared by every role's screens.
 
 // ── SectionLabel ──────────────────────────────────────────────────────────────
-// Numbered label used to visually group form fields in a step-by-step layout
+// Numbered label used to group form fields into a visible sequence.
+// Only use it where the steps genuinely run in order; a plain <Field label>
+// is right for everything else.
 export function SectionLabel({ step, children }: { step: number; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2.5 mb-3">
-      <span className="w-6 h-6 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+    <div className="flex items-center gap-2.5 mb-2.5">
+      <span className="w-5 h-5 rounded-full bg-accent-soft border border-accent-line text-accent text-xs font-bold flex items-center justify-center shrink-0 tabular">
         {step}
       </span>
-      <span className="text-sm font-semibold text-slate-200">{children}</span>
+      <span className="text-base font-semibold text-text">{children}</span>
     </div>
   )
 }
 
 // ── FormInput ─────────────────────────────────────────────────────────────────
-// Single-line or multi-line text input with consistent dark styling
+const FIELD_CLASS =
+  'w-full bg-surface border border-border-strong rounded-md px-3.5 py-2.5 text-base ' +
+  'text-text placeholder:text-text-3 transition-colors duration-150 ' +
+  'hover:border-text-3 focus:border-accent focus:outline-none ' +
+  'focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-1'
+
 type FormInputProps = {
   id: string
   placeholder: string
@@ -25,11 +32,6 @@ type FormInputProps = {
 }
 
 export function FormInput({ id, placeholder, value, onChange, multiline = false, rows = 3 }: FormInputProps) {
-  const cls =
-    'w-full bg-[#0b0f1a] border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 ' +
-    'placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/70 focus:bg-[#0d1120] ' +
-    'transition-all duration-200 leading-relaxed'
-
   return multiline ? (
     <textarea
       id={id}
@@ -37,7 +39,7 @@ export function FormInput({ id, placeholder, value, onChange, multiline = false,
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows}
-      className={`${cls} resize-none`}
+      className={`${FIELD_CLASS} resize-none leading-relaxed`}
     />
   ) : (
     <input
@@ -46,7 +48,36 @@ export function FormInput({ id, placeholder, value, onChange, multiline = false,
       value={value}
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
-      className={cls}
+      className={FIELD_CLASS}
     />
+  )
+}
+
+// ── Field ─────────────────────────────────────────────────────────────────────
+// Label + control + optional hint, wired so clicking the label focuses the
+// input and screen readers announce the hint alongside it.
+export function Field({
+  id,
+  label,
+  hint,
+  children,
+}: {
+  id: string
+  label: string
+  hint?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-sm font-semibold text-text-2">
+        {label}
+      </label>
+      {children}
+      {hint && (
+        <p id={`${id}-hint`} className="text-xs text-text-3">
+          {hint}
+        </p>
+      )}
+    </div>
   )
 }

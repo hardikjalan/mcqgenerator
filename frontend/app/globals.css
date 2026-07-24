@@ -1,105 +1,178 @@
 @import "tailwindcss";
 
-@theme {
-  --font-sans: var(--font-inter), sans-serif;
-  --font-display: var(--font-space-grotesk), sans-serif;
+/* ═════════════════════════════════════════════════════════════════════════
+   COGNIRA — DESIGN TOKENS
+   ─────────────────────────────────────────────────────────────────────────
+   The only place a colour, radius or shadow is defined.
 
-  --color-bg-dark: #030712;
-  --color-panel-dark: #0b0f19;
-  
-  --color-brand-indigo: #6366f1;
-  --color-brand-violet: #8b5cf6;
-  --color-brand-cyan: #06b6d4;
-}
+   Rule: never hardcode a colour in a component. No bg-[#0b0f1a], no
+   text-slate-600. If the value you need isn't here, add it here first —
+   that's how the whole product stays changeable from one file.
+
+   Each token is written once as light-dark(light, dark). Which half applies
+   is decided by `color-scheme`, so the theme toggle only has to change that
+   one property — it never touches the colours themselves.
+
+   Brand accent: Grape #7B3FD4
+   Red and green are reserved for wrong/right answers and never used for
+   branding, so results never fight the interface.
+   ═════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --bg-gradient: radial-gradient(circle at top, rgba(99, 102, 241, 0.15) 0%, transparent 60%),
-                 radial-gradient(circle at bottom right, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
-                 #030712;
+  /* Both listed = follow the operating system. The toggle narrows this. */
+  color-scheme: light dark;
+
+  /* Surfaces — page, cards, insets */
+  --bg:            light-dark(#FAFAFC, #121118);
+  --surface:       light-dark(#FFFFFF, #1A1922);
+  --surface-2:     light-dark(#F3F3F8, #22212D);
+  --border:        light-dark(#E6E5EE, #2B2937);
+  --border-strong: light-dark(#D2D0E0, #3A3749);
+
+  /* Text — three levels, that's all you get. Every one clears 4.5:1 against
+     --bg in both themes. Don't lighten them without re-checking. */
+  --text:   light-dark(#1A1826, #ECEBF2);
+  --text-2: light-dark(#5B5770, #A8A4BA);
+  --text-3: light-dark(#6F6A87, #837F98);
+
+  /* Brand — lifted in dark so it stays legible on a dark ground */
+  --accent:        light-dark(#7B3FD4, #A87BEA);
+  --accent-hover:  light-dark(#6A2FC0, #B891EF);
+  --accent-active: light-dark(#58259F, #C7A9F4);
+  --accent-soft:   light-dark(#F2ECFD, #241B36);
+  --accent-line:   light-dark(#D8C5F7, #3D2E5C);
+  --on-accent:     light-dark(#FFFFFF, #17102A);
+
+  /* Semantic — meaning, not decoration */
+  --success:      light-dark(#17784A, #5FC98A);
+  --success-soft: light-dark(#E3F3EA, #14291D);
+  --success-line: light-dark(#B7E0C7, #24462F);
+  --danger:       light-dark(#C0342A, #F0897F);
+  --danger-soft:  light-dark(#FBE9E7, #301B19);
+  --danger-line:  light-dark(#F3C4BF, #4C2A26);
+  --warning:      light-dark(#915F0B, #E0A94A);
+  --warning-soft: light-dark(#FBF0DA, #2C2213);
+  --warning-line: light-dark(#EDD5A3, #493822);
+
+  /* A single soft tint at the top of full-page screens, so they aren't a flat
+     slab. Used as a gradient stop against --bg — not as a glow or an orb. */
+  --wash-top: light-dark(#F3EDFD, #1A1428);
+
+  --sh-1: light-dark(rgba(26, 24, 38, .07), rgba(0, 0, 0, .45));
+  --sh-2: light-dark(rgba(26, 24, 38, .06), rgba(0, 0, 0, .35));
+  --sh-3: light-dark(rgba(26, 24, 38, .10), rgba(0, 0, 0, .50));
+
+  --shadow-sm: 0 1px 2px var(--sh-1);
+  --shadow-md: 0 1px 2px var(--sh-2), 0 8px 20px var(--sh-2);
+  --shadow-lg: 0 2px 4px var(--sh-2), 0 18px 44px var(--sh-3);
 }
 
+/* The toggle writes data-theme onto <html>; these pin the scheme so the
+   system preference stops applying. Removing the attribute returns to auto. */
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"]  { color-scheme: dark; }
+
+/* ── Expose tokens as Tailwind utilities ──────────────────────────────────
+   `inline` keeps the var() reference instead of resolving it, so bg-surface
+   follows the theme instead of freezing to whichever value loaded first. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border-subtle: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-active: var(--accent-active);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-line: var(--accent-line);
+  --color-on-accent: var(--on-accent);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-line: var(--success-line);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-line: var(--danger-line);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-line: var(--warning-line);
+
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+  /* Type scale. Nothing below 12px exists — if text needs to be smaller
+     than this, the layout is wrong, not the type. */
+  --text-xs:   0.75rem;    /* 12 */
+  --text-sm:   0.8125rem;  /* 13 */
+  --text-base: 0.875rem;   /* 14 — default UI size */
+  --text-md:   0.9375rem;  /* 15 */
+  --text-lg:   1.0625rem;  /* 17 */
+  --text-xl:   1.25rem;    /* 20 */
+  --text-2xl:  1.5rem;     /* 24 */
+  --text-3xl:  1.875rem;   /* 30 */
+  --text-4xl:  2.375rem;   /* 38 */
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 22px;
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────── */
 body {
-  background: var(--bg-gradient);
-  color: #f3f4f6;
-  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
 
-/* Glassmorphism custom classes */
-.glass-effect {
-  background: rgba(15, 23, 42, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-}
+::selection { background: var(--accent-soft); color: var(--accent-active); }
 
-.glass-effect-hover {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.glass-effect-hover:hover {
-  background: rgba(15, 23, 42, 0.6);
-  border-color: rgba(99, 102, 241, 0.3);
-  box-shadow: 0 0 40px rgba(99, 102, 241, 0.12);
-}
-
-/* Animations */
-@keyframes float-slow {
-  0%, 100% { transform: translateY(0px) scale(1); }
-  50% { transform: translateY(-10px) scale(1.05); }
-}
-
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes pulse-soft {
-  0%, 100% { opacity: 0.2; }
-  50% { opacity: 0.4; }
-}
-
-.animate-float-slow {
-  animation: float-slow 8s ease-in-out infinite;
-}
-
-.animate-spin-slow {
-  animation: spin-slow 25s linear infinite;
-}
-
-.animate-pulse-soft {
-  animation: pulse-soft 4s ease-in-out infinite;
-}
-
-/* Custom button styles */
-.btn-primary-glow {
-  position: relative;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.25);
-}
-
-.btn-primary-glow:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.45);
-  filter: brightness(1.1);
-}
-
-.btn-primary-glow:active {
-  transform: translateY(1px);
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-track {
-  background: #030712;
-}
-::-webkit-scrollbar-thumb {
-  background: #1f2937;
+/* Every interactive element gets a visible keyboard focus state. There were
+   none in the product before this line existed. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
   border-radius: 4px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #374151;
+
+/* Digits that sit in columns or tick (timers, marks, counts) must not
+   reflow as they change. */
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* One orchestrated entrance, used on the sign-in screen to show questions
+   arriving. Stagger it with an inline animation-delay. `both` holds the end
+   state, so the reduced-motion override below still leaves content visible. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: none; }
+}
+.animate-rise { animation: rise .5s cubic-bezier(.2, .7, .3, 1) both; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 3px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

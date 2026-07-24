@@ -1,78 +1,68 @@
 'use client'
 
 import { useRef } from 'react'
-import { CloudUpload, X, CheckCircle2, AlertCircle, Loader2, FileText, FileImage, FileSpreadsheet } from 'lucide-react'
+import { CloudUpload, X, CheckCircle2, AlertCircle, FileText, FileImage, FileSpreadsheet } from 'lucide-react'
 import type { UploadedFile } from '@/types/upload'
 import { ALLOWED_EXTENSIONS, formatBytes, getFileExt } from '@/lib/file-upload'
+import { Spinner } from '@/components/ui/Spinner'
 
-// ── File type icon (uses lucide) ──────────────────────────────────────────────
 function FileTypeIcon({ ext }: { ext: string }) {
-  if (ext === 'pdf') return <FileText className="w-5 h-5 text-rose-400 flex-shrink-0" />
-  if (ext === 'docx') return <FileText className="w-5 h-5 text-sky-400 flex-shrink-0" />
-  if (ext === 'pptx') return <FileSpreadsheet className="w-5 h-5 text-orange-400 flex-shrink-0" />
-  return <FileImage className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+  if (ext === 'pdf') return <FileText className="w-4 h-4 text-danger shrink-0" />
+  if (ext === 'docx') return <FileText className="w-4 h-4 text-accent shrink-0" />
+  if (ext === 'pptx') return <FileSpreadsheet className="w-4 h-4 text-warning shrink-0" />
+  return <FileImage className="w-4 h-4 text-success shrink-0" />
 }
 
 // ── Single file row ───────────────────────────────────────────────────────────
 function FileListItem({ entry, onRemove }: { entry: UploadedFile; onRemove: (e: UploadedFile) => void }) {
   return (
-    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${
-      entry.status === 'error'
-        ? 'border-rose-500/20 bg-rose-500/5'
-        : entry.status === 'done'
-        ? 'border-emerald-500/15 bg-emerald-500/4'
-        : 'border-slate-800/70 bg-slate-900/30'
-    }`}>
+    <li
+      className={[
+        'flex items-center gap-3 px-3 py-2.5 rounded-md border transition-colors',
+        entry.status === 'error'
+          ? 'border-danger-line bg-danger-soft'
+          : 'border-border-subtle bg-surface',
+      ].join(' ')}
+    >
       <FileTypeIcon ext={getFileExt(entry.file.name)} />
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2 mb-0.5">
-          <span className="text-xs font-medium text-slate-200 truncate">{entry.file.name}</span>
-          <span className="text-[10px] text-slate-600 whitespace-nowrap flex-shrink-0">{formatBytes(entry.file.size)}</span>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-base text-text truncate">{entry.file.name}</span>
+          <span className="text-xs text-text-3 tabular shrink-0">{formatBytes(entry.file.size)}</span>
         </div>
 
         {entry.status === 'uploading' && (
-          <div className="space-y-1">
-            <div className="h-[3px] w-full bg-slate-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-200"
-                style={{ width: `${entry.progress}%` }}
-              />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Loader2 className="w-3 h-3 text-indigo-400 animate-spin" />
-              <span className="text-[10px] text-indigo-400">Uploading {entry.progress}%</span>
-            </div>
+          <div className="mt-1.5 h-1 rounded-full bg-surface-2 overflow-hidden">
+            <div
+              className="h-full bg-accent transition-[width] duration-200"
+              style={{ width: `${entry.progress}%` }}
+            />
           </div>
         )}
 
-        {entry.status === 'done' && (
-          <div className="flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-[10px] text-emerald-400">Ready</span>
-          </div>
-        )}
-
-        {entry.status === 'error' && (
-          <div className="flex items-center gap-1">
-            <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-            <span className="text-[10px] text-rose-400">{entry.errorMsg}</span>
-          </div>
+        {entry.status === 'error' && entry.errorMsg && (
+          <p className="mt-0.5 text-xs text-danger">{entry.errorMsg}</p>
         )}
       </div>
 
-      <button
-        onClick={() => onRemove(entry)}
-        className="p-1.5 rounded-lg text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer flex-shrink-0"
-        title="Remove file"
-      >
-        <X className="w-3.5 h-3.5" />
-      </button>
-    </div>
+      <span className="shrink-0 flex items-center gap-1">
+        {entry.status === 'uploading' && <Spinner size={14} className="text-text-3" />}
+        {entry.status === 'done' && <CheckCircle2 className="w-4 h-4 text-success" aria-label="Uploaded" />}
+        {entry.status === 'error' && <AlertCircle className="w-4 h-4 text-danger" aria-label="Failed" />}
+        <button
+          onClick={() => onRemove(entry)}
+          aria-label={`Remove ${entry.file.name}`}
+          className="p-1 rounded-sm text-text-3 hover:text-danger hover:bg-surface-2 cursor-pointer transition-colors"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </span>
+    </li>
   )
 }
 
-// ── Drop Zone ─────────────────────────────────────────────────────────────────
+// ── Drop zone ─────────────────────────────────────────────────────────────────
 type FileUploadZoneProps = {
   uploadedFiles: UploadedFile[]
   isDragging: boolean
@@ -95,59 +85,49 @@ export function FileUploadZone({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   return (
-    <div className="space-y-4">
-      {/* Drop target */}
-      <div
+    <div className="flex flex-col gap-3">
+      <button
+        type="button"
         id="file-drop-zone"
+        onClick={() => fileInputRef.current?.click()}
+        onDrop={onDrop}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
-        onDrop={onDrop}
-        onClick={() => fileInputRef.current?.click()}
-        className={`rounded-2xl border-2 border-dashed py-14 flex flex-col items-center gap-4 cursor-pointer transition-all duration-300 ${
+        className={[
+          'w-full flex flex-col items-center justify-center gap-1.5 py-9 px-4',
+          'rounded-lg border border-dashed cursor-pointer transition-colors text-center',
           isDragging
-            ? 'border-indigo-500/70 bg-indigo-500/8 scale-[1.005]'
-            : 'border-slate-800 hover:border-indigo-500/35 hover:bg-indigo-500/4'
-        }`}
+            ? 'border-accent bg-accent-soft'
+            : 'border-border-strong bg-surface-2 hover:border-accent hover:bg-accent-soft',
+        ].join(' ')}
       >
         <CloudUpload
-          className={`w-9 h-9 text-indigo-400/80 transition-transform duration-300 ${isDragging ? 'scale-110 -translate-y-1' : ''}`}
+          className={`w-6 h-6 mb-0.5 ${isDragging ? 'text-accent' : 'text-text-3'}`}
+          aria-hidden="true"
         />
-        <div className="text-center">
-          <p className="text-sm font-semibold text-slate-300">
-            {isDragging ? 'Release to upload' : 'Drag & drop your files here'}
-          </p>
-          <p className="text-xs text-slate-600 mt-1">or click to browse · max 5 MB per file · 5 MB total</p>
-        </div>
-        <div className="flex gap-1.5">
-          {['PDF', 'DOCX', 'PPTX', 'PNG', 'JPG'].map(ext => (
-            <span
-              key={ext}
-              className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-slate-800/80 border border-slate-700/60 text-slate-500 uppercase tracking-wider"
-            >
-              {ext}
-            </span>
-          ))}
-        </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept={ALLOWED_EXTENSIONS.join(',')}
-          className="hidden"
-          onChange={onFileInput}
-        />
-      </div>
+        <span className="text-base font-semibold text-text">
+          {isDragging ? 'Drop them here' : 'Drop files here, or click to browse'}
+        </span>
+        <span className="text-xs text-text-3">
+          PDF · DOCX · PPTX · PNG · JPG — 5 MB in total
+        </span>
+      </button>
 
-      {/* File list */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept={ALLOWED_EXTENSIONS.join(',')}
+        className="hidden"
+        onChange={onFileInput}
+      />
+
       {uploadedFiles.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-[10px] text-slate-600 uppercase font-bold tracking-wider px-1">
-            {uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''}
-          </p>
+        <ul className="flex flex-col gap-2">
           {uploadedFiles.map(entry => (
             <FileListItem key={entry.id} entry={entry} onRemove={onRemove} />
           ))}
-        </div>
+        </ul>
       )}
     </div>
   )

@@ -17,5 +17,3 @@ export type UploadedFile = {
   storagePath?: string
   errorMsg?: string
 }
-
-export type ContentTab = 'upload' | 'text'
