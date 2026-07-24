@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Cognira
 
-## Getting Started
+AI-powered adaptive assessment platform. Faculty upload course material and
+configure a quiz; the system extracts the text and generates MCQs. Students take
+the generated assessments.
 
-First, run the development server:
+Full detail — architecture, features, roadmap — lives in [docs/project.md](docs/project.md).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Layout
+
+Two independently deployable apps in one repo:
+
+```
+mcqgenerator/
+├─ frontend/            # Next.js 16 (App Router) → deploys to Vercel
+├─ backend/             # FastAPI + Gemini OCR    → deploys to Railway / Render
+├─ supabase/migrations/ # Numbered SQL — run 01 → 05 in order
+└─ docs/                # project.md, notes-qa.md
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Nothing outside `frontend/` is needed to build the frontend, and nothing outside
+`backend/` is needed to run the API. Each owns its own env file — they never
+share one.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Running it
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Two terminals. **Backend first** — the faculty dashboard calls it on port 8000.
 
-## Learn More
+**Backend** (from `backend/`):
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+python -m venv .venv && .venv/Scripts/activate && pip install -r requirements.txt && uvicorn app.main:app --reload
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Frontend** (from `frontend/`):
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm install && npm run dev
+```
 
-## Deploy on Vercel
+Open http://localhost:3000.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Environment
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Neither env file is committed. Create both:
+
+| File | Variables |
+|------|-----------|
+| `frontend/.env.local` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
+| `backend/.env` | `GEMINI_API_KEY`, `TESSERACT_CMD_PATH` |
+
+Only `NEXT_PUBLIC_*` values reach the browser — server-side secrets belong in
+`backend/.env` and nowhere else.
+
+## Database
+
+Run the files in `supabase/migrations/` in the Supabase SQL Editor in numeric
+order (`01_schema.sql` → `05_onboarding.sql`). They are idempotent, so re-running
+is safe.
+
+## Where things go
+
+Both a faculty and a student flow live here, so placement follows **who uses a
+file**, not what it does:
+
+- `frontend/components/` — see [components/README.md](frontend/components/README.md) for the
+  `ui/` vs `shared/` vs `faculty/` vs `student/` rule.
+- `frontend/lib/`, `frontend/types/` — role-agnostic. Anything both roles import
+  belongs here, never inside a role folder.
+- `backend/app/api/routes/` — one module per resource; routes stay thin.
+- `backend/app/services/` — the actual work. Reusable without importing FastAPI.
