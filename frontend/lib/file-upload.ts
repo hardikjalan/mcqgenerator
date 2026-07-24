@@ -5,13 +5,13 @@ export const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.pptx', '.png', '.jpg', '.j
 
 // Per-file limit (capped at the cumulative ceiling so a single file can never
 // silently violate the batch limit). Must stay ≤ MAX_CUMULATIVE_SIZE.
-export const MAX_FILE_SIZE = 5 * 1024 * 1024  // 5 MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024  // 5 MB
 
 // Cumulative limit across ALL files in a single generate request.
 // Must match MAX_CUMULATIVE_SIZE_MB in backend/main.py.
 export const MAX_CUMULATIVE_SIZE = 5 * 1024 * 1024  // 5 MB
 
-export const ALLOWED_MIME_TYPES = [
+const ALLOWED_MIME_TYPES = [
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',

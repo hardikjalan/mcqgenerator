@@ -1,17 +1,12 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/env'
 
+/** Supabase client for Server Components and Route Handlers. */
 export async function createClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!url || !key) {
-    throw new Error('Supabase credentials are missing! Make sure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.')
-  }
-
   const cookieStore = await cookies()
 
-  return createServerClient(url, key, {
+  return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {
       getAll() {
         return cookieStore.getAll()
@@ -22,7 +17,8 @@ export async function createClient() {
             cookieStore.set(name, value, options)
           )
         } catch {
-          // Ignore exceptions if called from Server Components
+          // Server Components can't set cookies. Harmless here: the proxy
+          // refreshes the session on every request that needs it.
         }
       },
     },

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Figtree, JetBrains_Mono } from "next/font/google";
+import { InlineScript } from "@/components/shared/InlineScript";
 import "./globals.css";
 
 // Figtree carries the interface — friendly and geometric without being childish.
@@ -32,20 +33,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`h-full ${figtree.variable} ${jetbrainsMono.variable}`}>
+    // suppressHydrationWarning because the script below sets data-theme on this
+    // element before React hydrates. Without it React sees the attribute as a
+    // mismatch, throws away the server HTML and re-renders — which is both a
+    // flash and exactly what the script exists to prevent.
+    <html
+      lang="en"
+      className={`h-full ${figtree.variable} ${jetbrainsMono.variable}`}
+      suppressHydrationWarning
+    >
       <head>
-        {/*
-          Applies the saved theme before the first paint. Without this the page
-          renders in the system theme for a frame and then snaps to the chosen
-          one — the flash of wrong theme. It has to be inline and blocking to
-          beat paint, which is why it isn't a component.
-        */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "(function(){try{var t=localStorage.getItem('cognira-theme');" +
-              "if(t==='light'||t==='dark'){document.documentElement.dataset.theme=t}}catch(e){}})()",
-          }}
+        {/* Applies the saved theme before the first paint. */}
+        <InlineScript
+          html={
+            "(function(){try{var t=localStorage.getItem('cognira-theme');" +
+            "if(t==='light'||t==='dark'){document.documentElement.dataset.theme=t}}catch(e){}})()"
+          }
         />
       </head>
       <body className="min-h-full flex flex-col">{children}</body>

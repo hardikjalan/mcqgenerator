@@ -1,21 +1,29 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { LogOut, Menu, X, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/ui/Logo'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { UserProvider, useUser } from '@/components/shared/UserProvider'
 
 export type NavItem = {
   label: string
-  /** Omit for sections that aren't built yet — renders disabled, never 404s. */
+  /** Omit for sections that aren't built yet — renders as plain text, never a dead link. */
   href?: string
   Icon: LucideIcon
   /** Count shown on the right, e.g. number of drafts. */
   count?: number
 }
 
-export type ShellUser = { name: string; email: string; avatar: string; id: string }
+type ShellProps = {
+  nav: NavItem[]
+  roleLabel: string
+  title: string
+  /** Buttons for the top bar, left of the theme switch. */
+  actions?: ReactNode
+  children: ReactNode
+}
 
 /**
  * The frame every signed-in screen sits in: a nav rail on the left, a bar
@@ -24,41 +32,29 @@ export type ShellUser = { name: string; email: string; avatar: string; id: strin
  * Before this existed each dashboard drew its own header and there was no
  * navigation at all — every page was an island with no way to get anywhere.
  */
-export function AppShell({
-  nav,
-  roleLabel,
-  title,
-  actions,
-  children,
-}: {
-  nav: NavItem[]
-  roleLabel: string
-  title: string
-  /** Buttons for the top bar, right of the title. */
-  actions?: ReactNode
-  children: ReactNode
-}) {
-  const [user, setUser] = useState<ShellUser | null>(null)
+export function AppShell(props: ShellProps) {
+  // The provider has to sit outside the component that reads it, so the shell
+  // is split in two. Everything below here — including the pages — shares one
+  // user fetch.
+  return (
+    <UserProvider fallbackName={props.roleLabel}>
+      <ShellFrame {...props} />
+    </UserProvider>
+  )
+}
+
+function ShellFrame({ nav, roleLabel, title, actions, children }: ShellProps) {
+  const { user, loading } = useUser()
   const [menuOpen, setMenuOpen] = useState(false)
+  const drawerRef = useRef<HTMLDialogElement>(null)
 
+  // A native <dialog> gives focus trapping and Escape-to-close for free, which
+  // a hand-rolled drawer has to reimplement and usually gets wrong.
   useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => {
-      if (!data.user) return
-      setUser({
-        id: data.user.id,
-        name: data.user.user_metadata?.full_name ?? roleLabel,
-        email: data.user.email ?? '',
-        avatar: data.user.user_metadata?.avatar_url ?? '',
-      })
-    })
-  }, [roleLabel])
-
-  // Close the mobile drawer on Escape, and stop the page behind it scrolling.
-  useEffect(() => {
-    if (!menuOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    const drawer = drawerRef.current
+    if (!drawer) return
+    if (menuOpen && !drawer.open) drawer.showModal()
+    if (!menuOpen && drawer.open) drawer.close()
   }, [menuOpen])
 
   const handleSignOut = async () => {
@@ -77,35 +73,33 @@ export function AppShell({
       </div>
 
       <nav className="flex-1 px-2.5 py-3 flex flex-col gap-0.5 overflow-y-auto">
-        {nav.map(({ label, href, Icon, count }) => {
-          const isCurrent = Boolean(href)
-          return (
+        {nav.map(({ label, href, Icon, count }) =>
+          href ? (
             <a
               key={label}
-              href={href ?? undefined}
-              aria-current={isCurrent ? 'page' : undefined}
-              aria-disabled={!href}
-              onClick={e => { if (!href) e.preventDefault() }}
-              className={[
-                'flex items-center gap-2.5 px-2.5 py-2 rounded-md text-base transition-colors',
-                isCurrent
-                  ? 'bg-accent-soft text-accent font-semibold'
-                  : 'text-text-3 cursor-not-allowed',
-              ].join(' ')}
+              href={href}
+              aria-current="page"
+              className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-base font-semibold bg-accent-soft text-accent transition-colors"
             >
               <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span className="flex-1 truncate">{label}</span>
-              {count !== undefined && (
-                <span className="text-xs tabular text-text-3">{count}</span>
-              )}
-              {!href && (
-                <span className="text-xs px-1.5 py-0.5 rounded-sm bg-surface-2 text-text-3 font-medium">
-                  Soon
-                </span>
-              )}
+              {count !== undefined && <span className="text-xs tabular text-text-3">{count}</span>}
             </a>
+          ) : (
+            // Not a link and not a button — it does nothing, so it must not be
+            // focusable or announced as clickable.
+            <span
+              key={label}
+              className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-base text-text-3"
+            >
+              <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span className="flex-1 truncate">{label}</span>
+              <span className="text-xs px-1.5 py-0.5 rounded-sm bg-surface-2 text-text-3 font-medium">
+                Soon
+              </span>
+            </span>
           )
-        })}
+        )}
       </nav>
 
       <div className="p-2.5 border-t border-border-subtle shrink-0 flex flex-col gap-2">
@@ -119,7 +113,9 @@ export function AppShell({
             </span>
           )}
           <span className="flex flex-col min-w-0 leading-tight">
-            <span className="text-sm font-semibold text-text truncate">{user?.name ?? 'Loading…'}</span>
+            <span className="text-sm font-semibold text-text truncate">
+              {loading ? 'Loading…' : user?.name ?? 'Signed out'}
+            </span>
             <span className="text-xs text-text-3 truncate">{user?.email}</span>
           </span>
         </div>
@@ -143,14 +139,14 @@ export function AppShell({
       </aside>
 
       {/* ── Drawer (mobile) ───────────────────────────────────────────── */}
-      {menuOpen && (
-        <div className="lg:hidden fixed inset-0 z-40 flex">
-          <div className="fixed inset-0 bg-text/40" onClick={() => setMenuOpen(false)} />
-          <aside className="relative w-60 flex flex-col border-r border-border-subtle bg-surface h-full">
-            {railContent}
-          </aside>
-        </div>
-      )}
+      <dialog
+        ref={drawerRef}
+        onClose={() => setMenuOpen(false)}
+        onClick={e => { if (e.target === drawerRef.current) setMenuOpen(false) }}
+        className="lg:hidden m-0 p-0 h-full max-h-full w-60 max-w-none bg-surface border-r border-border-subtle backdrop:bg-text/40"
+      >
+        <div className="flex flex-col h-full">{railContent}</div>
+      </dialog>
 
       {/* ── Content ───────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -159,7 +155,7 @@ export function AppShell({
             onClick={() => setMenuOpen(v => !v)}
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={menuOpen}
-            className="lg:hidden relative z-50 p-1.5 -ml-1.5 rounded-md text-text-2 hover:bg-surface-2 cursor-pointer"
+            className="lg:hidden p-1.5 -ml-1.5 rounded-md text-text-2 hover:bg-surface-2 cursor-pointer"
           >
             {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>

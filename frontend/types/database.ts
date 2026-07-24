@@ -31,21 +31,8 @@ export interface Profile {
   created_at: string
 }
 
-/** Partial shape used when reading only the role during route/proxy checks */
-export type ProfileRoleSnapshot = Pick<Profile, 'id' | 'role'>
-
 /**
  * Role the user picks on the onboarding screen.
  * Subset of UserRole — admins are assigned manually, never through onboarding.
  */
 export type OnboardingRole = 'student' | 'faculty'
-
-// ── RPC argument types ─────────────────────────────────────────────────────────
-
-/** Arguments passed to the upsert_profile_on_login Postgres RPC */
-export interface UpsertProfileOnLoginArgs {
-  p_id: string
-  p_email: string
-  p_full_name: string | null
-  p_avatar: string | null
-}

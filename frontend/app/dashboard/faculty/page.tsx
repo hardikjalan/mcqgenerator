@@ -1,15 +1,17 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import {
   Wand2, FilePlus2, Library, BarChart3, Users, FileCheck2, CheckCircle2, AlertCircle,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { apiUrl } from '@/lib/env'
 import type { UploadedFile } from '@/types/upload'
 import type { QuestionType, QuizConfig } from '@/types/quiz'
 import { QUESTION_COUNTS, QUESTION_TYPES } from '@/lib/quiz-config'
 import { validateFile, getFileExt, MAX_CUMULATIVE_SIZE } from '@/lib/file-upload'
 import { AppShell, type NavItem } from '@/components/shared/AppShell'
+import { useUser } from '@/components/shared/UserProvider'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Alert } from '@/components/ui/Alert'
@@ -27,7 +29,17 @@ const NAV: NavItem[] = [
 type ExtractedSource = { name: string; status: string; text: string; error: string | null }
 
 export default function FacultyDashboard() {
-  const [userId, setUserId] = useState<string | null>(null)
+  return (
+    <AppShell nav={NAV} roleLabel="Teacher" title="Create a quiz">
+      <QuizBuilder />
+    </AppShell>
+  )
+}
+
+/** Lives inside AppShell so it can read the user the shell already fetched. */
+function QuizBuilder() {
+  const { user } = useUser()
+  const userId = user?.id ?? null
 
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [isDragging, setIsDragging] = useState(false)
@@ -47,10 +59,6 @@ export default function FacultyDashboard() {
   const [genError, setGenError] = useState<string | null>(null)
   const [extractedSources, setExtractedSources] = useState<ExtractedSource[]>([])
 
-  useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null))
-  }, [])
-
   // ── Upload ─────────────────────────────────────────────────────────────────
   const uploadToStorage = useCallback(async (entry: UploadedFile) => {
     if (!userId) return
@@ -58,19 +66,11 @@ export default function FacultyDashboard() {
     const ext = getFileExt(entry.file.name)
     const path = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
 
-    // Animate progress while uploading
-    const tick = setInterval(() => {
-      setUploadedFiles(prev =>
-        prev.map(f =>
-          f.id === entry.id && f.status === 'uploading'
-            ? { ...f, progress: Math.min(f.progress + 14, 85) }
-            : f
-        )
-      )
-    }, 180)
-
+    // No progress ticker here on purpose. Supabase's upload doesn't report
+    // bytes sent, so the old timer was inventing a percentage that had nothing
+    // to do with the transfer — it read "85%" on a stalled upload. The row
+    // shows an indeterminate bar instead, which is the truth.
     const { error } = await supabase.storage.from('faculty-documents').upload(path, entry.file)
-    clearInterval(tick)
 
     setUploadedFiles(prev =>
       prev.map(f =>
@@ -179,7 +179,7 @@ export default function FacultyDashboard() {
         }))
         .filter(f => f.signedUrl)
 
-      const res = await fetch('http://localhost:8000/generate-assessment', {
+      const res = await fetch(apiUrl('/generate-assessment'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -219,236 +219,234 @@ export default function FacultyDashboard() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <AppShell nav={NAV} roleLabel="Teacher" title="Create a quiz">
-      <div className="max-w-6xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_336px] gap-5 items-start">
+    <div className="max-w-6xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_336px] gap-5 items-start">
 
-        {/* ── Left: the form ──────────────────────────────────────────── */}
-        <div className="flex flex-col gap-5 min-w-0">
+      {/* ── Left: the form ──────────────────────────────────────────── */}
+      <div className="flex flex-col gap-5 min-w-0">
 
-          <Card>
-            <CardHeader
-              title="Course material"
-              hint="What the questions get written from."
-              aside={<span className="text-xs text-text-3 tabular">{readyFiles.length} ready</span>}
-            />
-            <FileUploadZone
-              uploadedFiles={uploadedFiles}
-              isDragging={isDragging}
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onFileInput={handleFileInput}
-              onRemove={removeFile}
-            />
-          </Card>
+        <Card>
+          <CardHeader
+            title="Course material"
+            hint="What the questions get written from."
+            aside={<span className="text-xs text-text-3 tabular">{readyFiles.length} ready</span>}
+          />
+          <FileUploadZone
+            uploadedFiles={uploadedFiles}
+            isDragging={isDragging}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onFileInput={handleFileInput}
+            onRemove={removeFile}
+          />
+        </Card>
 
-          <Card>
-            <CardHeader title="About the quiz" hint="All four are needed." />
-            <div className="flex flex-col gap-4">
-              <div className="grid sm:grid-cols-2 gap-4">
-                <Field id="subject-name-input" label="Subject">
-                  <FormInput
-                    id="subject-name-input"
-                    placeholder="Data Structures and Algorithms"
-                    value={config.subjectName}
-                    onChange={v => setConf({ subjectName: v })}
-                  />
-                </Field>
-                <Field id="grade-level-input" label="Who is it for?">
-                  <FormInput
-                    id="grade-level-input"
-                    placeholder="2nd year B.Tech CSE"
-                    value={config.gradeLevel}
-                    onChange={v => setConf({ gradeLevel: v })}
-                  />
-                </Field>
-              </div>
-
-              <Field id="topics-input" label="Topics to cover" hint="Separate them with commas.">
+        <Card>
+          <CardHeader title="About the quiz" hint="All four are needed." />
+          <div className="flex flex-col gap-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <Field id="subject-name-input" label="Subject">
                 <FormInput
-                  id="topics-input"
-                  placeholder="Binary trees, graph traversal, dynamic programming"
-                  value={config.topicsCovered}
-                  onChange={v => setConf({ topicsCovered: v })}
+                  id="subject-name-input"
+                  placeholder="Data Structures and Algorithms"
+                  value={config.subjectName}
+                  onChange={v => setConf({ subjectName: v })}
                 />
               </Field>
-
-              <Field id="learning-objective-input" label="What should it test?">
+              <Field id="grade-level-input" label="Who is it for?">
                 <FormInput
-                  id="learning-objective-input"
-                  placeholder="Whether students understand tree traversal and can work out time complexity after Chapter 5"
-                  value={config.learningObjective}
-                  onChange={v => setConf({ learningObjective: v })}
-                  multiline
-                  rows={3}
+                  id="grade-level-input"
+                  placeholder="2nd year B.Tech CSE"
+                  value={config.gradeLevel}
+                  onChange={v => setConf({ gradeLevel: v })}
                 />
               </Field>
             </div>
-          </Card>
 
-          <Card>
-            <CardHeader title="Questions" />
-            <div className="flex flex-col gap-5">
+            <Field id="topics-input" label="Topics to cover" hint="Separate them with commas.">
+              <FormInput
+                id="topics-input"
+                placeholder="Binary trees, graph traversal, dynamic programming"
+                value={config.topicsCovered}
+                onChange={v => setConf({ topicsCovered: v })}
+              />
+            </Field>
 
+            <Field id="learning-objective-input" label="What should it test?">
+              <FormInput
+                id="learning-objective-input"
+                placeholder="Whether students understand tree traversal and can work out time complexity after Chapter 5"
+                value={config.learningObjective}
+                onChange={v => setConf({ learningObjective: v })}
+                multiline
+                rows={3}
+              />
+            </Field>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title="Questions" />
+          <div className="flex flex-col gap-5">
+
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-semibold text-text-2">Type</span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {QUESTION_TYPES.map(qt => {
+                  const active = config.questionType === qt.key
+                  return (
+                    <button
+                      key={qt.key}
+                      id={`qtype-${qt.key}`}
+                      onClick={() => setConf({ questionType: qt.key as QuestionType })}
+                      aria-pressed={active}
+                      className={[
+                        'flex flex-col items-start gap-0.5 px-3 py-2.5 rounded-md border text-left transition-colors cursor-pointer',
+                        active
+                          ? 'border-accent bg-accent-soft'
+                          : 'border-border-strong bg-surface hover:border-text-3 hover:bg-surface-2',
+                      ].join(' ')}
+                    >
+                      <span className={`text-base font-semibold ${active ? 'text-accent' : 'text-text'}`}>
+                        {qt.label}
+                      </span>
+                      <span className="text-xs text-text-3">{qt.desc}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-5">
               <div className="flex flex-col gap-2">
-                <span className="text-sm font-semibold text-text-2">Type</span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {QUESTION_TYPES.map(qt => {
-                    const active = config.questionType === qt.key
+                <span className="text-sm font-semibold text-text-2">How many</span>
+                <div className="flex gap-2">
+                  {QUESTION_COUNTS.map(n => {
+                    const active = config.questionCount === n && !config.customCount
                     return (
                       <button
-                        key={qt.key}
-                        id={`qtype-${qt.key}`}
-                        onClick={() => setConf({ questionType: qt.key as QuestionType })}
+                        key={n}
+                        id={`qcount-${n}`}
+                        onClick={() => setConf({ questionCount: n, customCount: '' })}
                         aria-pressed={active}
                         className={[
-                          'flex flex-col items-start gap-0.5 px-3 py-2.5 rounded-md border text-left transition-colors cursor-pointer',
+                          'flex-1 py-2 rounded-md border text-base font-semibold tabular transition-colors cursor-pointer',
                           active
-                            ? 'border-accent bg-accent-soft'
-                            : 'border-border-strong bg-surface hover:border-text-3 hover:bg-surface-2',
+                            ? 'border-accent bg-accent-soft text-accent'
+                            : 'border-border-strong bg-surface text-text-2 hover:border-text-3 hover:bg-surface-2',
                         ].join(' ')}
                       >
-                        <span className={`text-base font-semibold ${active ? 'text-accent' : 'text-text'}`}>
-                          {qt.label}
-                        </span>
-                        <span className="text-xs text-text-3">{qt.desc}</span>
+                        {n}
                       </button>
                     )
                   })}
-                </div>
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-5">
-                <div className="flex flex-col gap-2">
-                  <span className="text-sm font-semibold text-text-2">How many</span>
-                  <div className="flex gap-2">
-                    {QUESTION_COUNTS.map(n => {
-                      const active = config.questionCount === n && !config.customCount
-                      return (
-                        <button
-                          key={n}
-                          id={`qcount-${n}`}
-                          onClick={() => setConf({ questionCount: n, customCount: '' })}
-                          aria-pressed={active}
-                          className={[
-                            'flex-1 py-2 rounded-md border text-base font-semibold tabular transition-colors cursor-pointer',
-                            active
-                              ? 'border-accent bg-accent-soft text-accent'
-                              : 'border-border-strong bg-surface text-text-2 hover:border-text-3 hover:bg-surface-2',
-                          ].join(' ')}
-                        >
-                          {n}
-                        </button>
-                      )
-                    })}
-                    <input
-                      id="qcount-custom"
-                      type="number"
-                      min={1}
-                      max={100}
-                      placeholder="Other"
-                      aria-label="Custom number of questions"
-                      value={config.customCount}
-                      onChange={e => {
-                        const v = e.target.value
-                        setConf({ customCount: v, questionCount: v ? parseInt(v) || 10 : 10 })
-                      }}
-                      className="w-20 bg-surface border border-border-strong rounded-md px-2.5 py-2 text-base text-text placeholder:text-text-3 tabular hover:border-text-3 focus:border-accent focus:outline-none transition-colors"
-                    />
-                  </div>
-                </div>
-
-                <Field id="time-limit-input" label="Time limit" hint="Minutes. Leave empty for no limit.">
                   <input
-                    id="time-limit-input"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="30"
-                    value={config.timeLimit}
-                    onChange={e => setConf({ timeLimit: e.target.value.replace(/\D/g, '') })}
-                    className="w-full bg-surface border border-border-strong rounded-md px-3.5 py-2.5 text-base text-text placeholder:text-text-3 tabular hover:border-text-3 focus:border-accent focus:outline-none transition-colors"
+                    id="qcount-custom"
+                    type="number"
+                    min={1}
+                    max={100}
+                    placeholder="Other"
+                    aria-label="Custom number of questions"
+                    value={config.customCount}
+                    onChange={e => {
+                      const v = e.target.value
+                      setConf({ customCount: v, questionCount: v ? parseInt(v) || 10 : 10 })
+                    }}
+                    className="w-20 bg-surface border border-border-strong rounded-md px-2.5 py-2 text-base text-text placeholder:text-text-3 tabular hover:border-text-3 focus:border-accent focus:outline-none transition-colors"
                   />
-                </Field>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* ── Right: summary and the action ───────────────────────────── */}
-        <div className="flex flex-col gap-4 lg:sticky lg:top-20">
-          <Card>
-            <CardHeader title="Summary" />
-            <dl className="flex flex-col gap-2.5 text-base">
-              {[
-                ['Subject', config.subjectName || '—'],
-                ['For', config.gradeLevel || '—'],
-                ['Type', QUESTION_TYPES.find(q => q.key === config.questionType)?.label ?? '—'],
-                ['Questions', String(config.questionCount)],
-                ['Time', config.timeLimit ? `${config.timeLimit} min` : 'No limit'],
-                ['Files', String(readyFiles.length)],
-              ].map(([label, value]) => (
-                <div key={label} className="flex items-baseline justify-between gap-3">
-                  <dt className="text-text-3 shrink-0">{label}</dt>
-                  <dd className="text-text font-medium text-right truncate">{value}</dd>
                 </div>
-              ))}
-            </dl>
+              </div>
 
-            <div className="mt-5 flex flex-col gap-2.5">
-              <Button
-                id="generate-assessment-btn"
-                block
-                size="lg"
-                disabled={!isReady}
-                loading={isGenerating}
-                onClick={handleGenerate}
-              >
-                {!isGenerating && <Wand2 className="w-4 h-4" aria-hidden="true" />}
-                {isGenerating ? 'Working…' : 'Generate questions'}
-              </Button>
-
-              {missing && !isGenerating && (
-                <p className="text-xs text-text-3 text-center">{missing}</p>
-              )}
+              <Field id="time-limit-input" label="Time limit" hint="Minutes. Leave empty for no limit.">
+                <input
+                  id="time-limit-input"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="30"
+                  value={config.timeLimit}
+                  onChange={e => setConf({ timeLimit: e.target.value.replace(/\D/g, '') })}
+                  className="w-full bg-surface border border-border-strong rounded-md px-3.5 py-2.5 text-base text-text placeholder:text-text-3 tabular hover:border-text-3 focus:border-accent focus:outline-none transition-colors"
+                />
+              </Field>
             </div>
-
-            {genError && <Alert tone="error" className="mt-3">{genError}</Alert>}
-          </Card>
-
-          {extractedSources.length > 0 && (
-            <Card>
-              <CardHeader
-                title="Read from your files"
-                aside={
-                  <span className="text-xs text-text-3 tabular">
-                    {extractedSources.filter(s => s.status === 'success').length}/{extractedSources.length}
-                  </span>
-                }
-              />
-              <ul className="flex flex-col gap-2.5">
-                {extractedSources.map((src, i) => (
-                  <li key={i} className="flex flex-col gap-1">
-                    <span className="flex items-center gap-2 min-w-0">
-                      {src.status === 'success'
-                        ? <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" aria-hidden="true" />
-                        : <AlertCircle className="w-3.5 h-3.5 text-danger shrink-0" aria-hidden="true" />}
-                      <span className="text-sm text-text truncate flex-1">{src.name}</span>
-                      {src.status === 'success' && (
-                        <span className="text-xs text-text-3 tabular shrink-0">
-                          {src.text.length.toLocaleString()} ch
-                        </span>
-                      )}
-                    </span>
-                    {src.status !== 'success' && src.error && (
-                      <p className="text-xs text-danger pl-6">{src.error}</p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
-        </div>
+          </div>
+        </Card>
       </div>
-    </AppShell>
+
+      {/* ── Right: summary and the action ───────────────────────────── */}
+      <div className="flex flex-col gap-4 lg:sticky lg:top-20">
+        <Card>
+          <CardHeader title="Summary" />
+          <dl className="flex flex-col gap-2.5 text-base">
+            {[
+              ['Subject', config.subjectName || '—'],
+              ['For', config.gradeLevel || '—'],
+              ['Type', QUESTION_TYPES.find(q => q.key === config.questionType)?.label ?? '—'],
+              ['Questions', String(config.questionCount)],
+              ['Time', config.timeLimit ? `${config.timeLimit} min` : 'No limit'],
+              ['Files', String(readyFiles.length)],
+            ].map(([label, value]) => (
+              <div key={label} className="flex items-baseline justify-between gap-3">
+                <dt className="text-text-3 shrink-0">{label}</dt>
+                <dd className="text-text font-medium text-right truncate">{value}</dd>
+              </div>
+            ))}
+          </dl>
+
+          <div className="mt-5 flex flex-col gap-2.5">
+            <Button
+              id="generate-assessment-btn"
+              block
+              size="lg"
+              disabled={!isReady}
+              loading={isGenerating}
+              onClick={handleGenerate}
+            >
+              {!isGenerating && <Wand2 className="w-4 h-4" aria-hidden="true" />}
+              {isGenerating ? 'Working…' : 'Generate questions'}
+            </Button>
+
+            {missing && !isGenerating && (
+              <p className="text-xs text-text-3 text-center">{missing}</p>
+            )}
+          </div>
+
+          {genError && <Alert tone="error" className="mt-3">{genError}</Alert>}
+        </Card>
+
+        {extractedSources.length > 0 && (
+          <Card>
+            <CardHeader
+              title="Read from your files"
+              aside={
+                <span className="text-xs text-text-3 tabular">
+                  {extractedSources.filter(s => s.status === 'success').length}/{extractedSources.length}
+                </span>
+              }
+            />
+            <ul className="flex flex-col gap-2.5">
+              {extractedSources.map((src, i) => (
+                <li key={i} className="flex flex-col gap-1">
+                  <span className="flex items-center gap-2 min-w-0">
+                    {src.status === 'success'
+                      ? <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" aria-hidden="true" />
+                      : <AlertCircle className="w-3.5 h-3.5 text-danger shrink-0" aria-hidden="true" />}
+                    <span className="text-sm text-text truncate flex-1">{src.name}</span>
+                    {src.status === 'success' && (
+                      <span className="text-xs text-text-3 tabular shrink-0">
+                        {src.text.length.toLocaleString()} ch
+                      </span>
+                    )}
+                  </span>
+                  {src.status !== 'success' && src.error && (
+                    <p className="text-xs text-danger pl-6">{src.error}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+      </div>
+    </div>
   )
 }

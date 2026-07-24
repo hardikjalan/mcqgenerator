@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from 'react'
 import { Monitor, Moon, Sun } from 'lucide-react'
 
-export type Theme = 'light' | 'dark' | 'system'
+type Theme = 'light' | 'dark' | 'system'
 
 const STORAGE_KEY = 'cognira-theme'
 const CHANGE_EVENT = 'cognira-theme-change'

@@ -1,19 +1,4 @@
-// Form primitives — shared by every role's screens.
-
-// ── SectionLabel ──────────────────────────────────────────────────────────────
-// Numbered label used to group form fields into a visible sequence.
-// Only use it where the steps genuinely run in order; a plain <Field label>
-// is right for everything else.
-export function SectionLabel({ step, children }: { step: number; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2.5 mb-2.5">
-      <span className="w-5 h-5 rounded-full bg-accent-soft border border-accent-line text-accent text-xs font-bold flex items-center justify-center shrink-0 tabular">
-        {step}
-      </span>
-      <span className="text-base font-semibold text-text">{children}</span>
-    </div>
-  )
-}
+import { cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react'
 
 // ── FormInput ─────────────────────────────────────────────────────────────────
 const FIELD_CLASS =
@@ -29,9 +14,19 @@ type FormInputProps = {
   onChange: (value: string) => void
   multiline?: boolean
   rows?: number
+  /** Set by <Field> so the hint is read out with the input. Don't pass by hand. */
+  'aria-describedby'?: string
 }
 
-export function FormInput({ id, placeholder, value, onChange, multiline = false, rows = 3 }: FormInputProps) {
+export function FormInput({
+  id,
+  placeholder,
+  value,
+  onChange,
+  multiline = false,
+  rows = 3,
+  'aria-describedby': describedBy,
+}: FormInputProps) {
   return multiline ? (
     <textarea
       id={id}
@@ -39,6 +34,7 @@ export function FormInput({ id, placeholder, value, onChange, multiline = false,
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows}
+      aria-describedby={describedBy}
       className={`${FIELD_CLASS} resize-none leading-relaxed`}
     />
   ) : (
@@ -48,14 +44,20 @@ export function FormInput({ id, placeholder, value, onChange, multiline = false,
       value={value}
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
+      aria-describedby={describedBy}
       className={FIELD_CLASS}
     />
   )
 }
 
 // ── Field ─────────────────────────────────────────────────────────────────────
-// Label + control + optional hint, wired so clicking the label focuses the
-// input and screen readers announce the hint alongside it.
+/**
+ * Label + control + optional hint.
+ *
+ * The hint is attached to the control with aria-describedby, so a screen reader
+ * reads it as part of the field instead of skipping it. Field does that wiring
+ * itself — callers just pass `hint` and never think about it.
+ */
 export function Field({
   id,
   label,
@@ -65,16 +67,25 @@ export function Field({
   id: string
   label: string
   hint?: string
-  children: React.ReactNode
+  children: ReactNode
 }) {
+  const hintId = hint ? `${id}-hint` : undefined
+
+  const control =
+    hintId && isValidElement(children)
+      ? cloneElement(children as ReactElement<{ 'aria-describedby'?: string }>, {
+          'aria-describedby': hintId,
+        })
+      : children
+
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-sm font-semibold text-text-2">
         {label}
       </label>
-      {children}
+      {control}
       {hint && (
-        <p id={`${id}-hint`} className="text-xs text-text-3">
+        <p id={hintId} className="text-xs text-text-3">
           {hint}
         </p>
       )}

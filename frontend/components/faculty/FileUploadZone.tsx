@@ -33,11 +33,14 @@ function FileListItem({ entry, onRemove }: { entry: UploadedFile; onRemove: (e: 
         </div>
 
         {entry.status === 'uploading' && (
-          <div className="mt-1.5 h-1 rounded-full bg-surface-2 overflow-hidden">
-            <div
-              className="h-full bg-accent transition-[width] duration-200"
-              style={{ width: `${entry.progress}%` }}
-            />
+          // Indeterminate: the upload doesn't report bytes sent, so this shows
+          // that something is happening without claiming to know how far along.
+          <div
+            className="mt-1.5 h-1 rounded-full bg-surface-2 overflow-hidden"
+            role="progressbar"
+            aria-label={`Uploading ${entry.file.name}`}
+          >
+            <div className="h-full w-2/5 rounded-full bg-accent animate-slide" />
           </div>
         )}
 
