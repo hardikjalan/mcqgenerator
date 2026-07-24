@@ -7,7 +7,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload   # run from this directory, not the repo root
 ```
 
-Interactive API docs: http://localhost:8000/docs
+Interactive API docs: http://localhost:8000/docs 
 
 ## Layout
 

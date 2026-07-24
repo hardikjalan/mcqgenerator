@@ -42,11 +42,15 @@ Open http://localhost:3000.
 
 ## Environment
 
-Neither env file is committed. Create both:
+Neither env file is committed — copy the templates:
+
+```bash
+cp frontend/.env.example frontend/.env.local
+```
 
 | File | Variables |
 |------|-----------|
-| `frontend/.env.local` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
+| `frontend/.env.local` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_API_URL` |
 | `backend/.env` | `GEMINI_API_KEY`, `TESSERACT_CMD_PATH` |
 
 Only `NEXT_PUBLIC_*` values reach the browser — server-side secrets belong in
@@ -55,8 +59,39 @@ Only `NEXT_PUBLIC_*` values reach the browser — server-side secrets belong in
 ## Database
 
 Run the files in `supabase/migrations/` in the Supabase SQL Editor in numeric
-order (`01_schema.sql` → `05_onboarding.sql`). They are idempotent, so re-running
-is safe.
+order (`01_schema.sql` → `06_signin_hardening.sql`). They are idempotent, so
+re-running is safe.
+
+## Deploying
+
+The frontend and backend deploy separately. **This repo has no `package.json` at
+its root** — it's at `frontend/package.json`, so the host has to be told where
+to look or it won't find Next.js at all.
+
+### Vercel (frontend)
+
+| Setting | Value |
+|---|---|
+| **Root Directory** | `frontend` |
+| Framework Preset | Next.js (auto-detected once the root is right) |
+| Build Command | leave default |
+
+Then add the three `NEXT_PUBLIC_*` variables under **Settings → Environment
+Variables**. The build reads them, so a deploy started before they were added
+will fail — add them, then redeploy.
+
+Set `NEXT_PUBLIC_API_URL` to the deployed backend address, not localhost.
+
+### Backend (Railway / Render)
+
+| Setting | Value |
+|---|---|
+| Root Directory | `backend` |
+| Start command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+
+Add `GEMINI_API_KEY`, and add the deployed frontend address to `ALLOWED_ORIGINS`
+in `backend/app/core/config.py` — otherwise the browser blocks every request as
+a cross-origin violation.
 
 ## Where things go
 
