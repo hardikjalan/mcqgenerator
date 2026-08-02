@@ -8,7 +8,7 @@ Cognira transforms static study materials (PDF, DOCX, PPTX, images) into persona
 | Layer | Technology |
 |-------|------------|
 | **Frontend** | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, Lucide icons, Google Fonts (Inter, Space Grotesk) |
-| **Backend** | FastAPI, Python 3.13, `google-genai` (Gemini Vision OCR), PyMuPDF, python‑docx, python‑pptx |
+| **Backend** | FastAPI, Python 3.13, LlamaIndex (`llama-index-readers-file`), `google-genai` (Gemini Vision OCR), PyMuPDF, python‑pptx |
 | **Auth & Storage** | Supabase (PostgreSQL, Auth, Storage) |
 | **CI/CD** | GitHub Actions (test, lint, deploy) |
 | **Deployment** | Vercel (frontend) • Railway / Render (backend) |
@@ -19,7 +19,7 @@ Cognira follows a clear client‑server split:
 
 1. **Authentication** – Google OAuth via Supabase.
 2. **File Upload** – Validated (PDF/DOCX/PPTX/Image ≤ 10 MB) and stored in a private Supabase bucket (`faculty‑documents`).
-3. **Extraction** – FastAPI extracts text layers; large images (> 1000 px in either dimension) are sent to Gemini Vision OCR.
+3. **Extraction** – LlamaIndex readers parse each file into `Document` objects; scanned or image‑heavy PDF pages and raw images are sent to Gemini Vision OCR.
 4. **Quiz Generation** – Combined text and user‑provided configuration are sent to Gemini 2.0 Flash (future: Claude).
 5. **Delivery** – Frontend renders questions, tracks answers, and stores results.
 
@@ -93,7 +93,7 @@ mcqgenerator/
 │   │   ├─ core/               # config, logger, exceptions, responses
 │   │   ├─ api/routes/         # health.py, assessments.py
 │   │   ├─ schemas/            # Pydantic request/response shapes
-│   │   └─ services/extraction/# pipeline.py + extractors/ + loaders/
+│   │   └─ services/extraction/# pipeline.py + ocr_fallback.py + gemini_ocr
 │   ├─ .env                    # Server‑side secrets (not committed)
 │   └─ requirements.txt
 ├─ supabase/migrations/        # Numbered — run in order, 01 → 05
@@ -166,10 +166,11 @@ once, in `app/core/config.py` — no other module calls `load_dotenv`.
 
 ## Known Issues & Limitations
 - No batching or delayed processing in V1 – documents are handled sequentially.
-- `MAX_IMAGES_PER_DOC = 20` caps image‑OCR calls to control cost.
-- Image‑area heuristic: OCR runs only when an image occupies **> 75 %** of page area **and** its dimensions are ≥ 1000 px (width or height).
+- `MAX_IMAGES_PER_DOC = 5` caps image‑OCR calls per document to control cost.
+- Image‑area heuristic (`ocr_fallback.py`): a PDF page is OCR'd when it has almost no text layer beside a qualifying image, or when qualifying images cover **> 75 %** of the page. An image qualifies at ≥ 300 px on one side with an aspect ratio ≤ 8.
 - Small logos, bullet‑point graphics, or background images are ignored, but edge‑cases may still trigger OCR.
 - Only Gemini Vision OCR is integrated; other providers are not yet supported.
+- LlamaIndex's `ImageReader` is deliberately unused – its default parser pulls torch + transformers + sentencepiece, which would dominate the deploy image.
 
 ## Changelog
 ### v1.0 — 2026‑06‑22

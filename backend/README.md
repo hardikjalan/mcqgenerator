@@ -26,9 +26,10 @@ backend/
 │  ├─ schemas/             # Pydantic request/response shapes
 │  └─ services/            # The actual work — importable without FastAPI
 │     └─ extraction/
-│        ├─ pipeline.py    # download → temp file → extract → text
-│        ├─ extractors/    # One per format; each returns plain text
-│        └─ loaders/       # Open + validate a file before extraction reads it
+│        ├─ pipeline.py       # download → temp file → LlamaIndex reader → Documents
+│        ├─ ocr_fallback.py   # Scanned-PDF OCR — the gap the readers leave
+│        └─ extractors/
+│           └─ gemini_ocr.py  # Gemini Vision, with local Tesseract fallback
 ├─ .env                    # Server-side secrets (not committed)
 └─ requirements.txt
 ```
@@ -44,8 +45,21 @@ backend/
 - **Routes don't do work.** A route validates, calls a service, and shapes a
   response. If a route grows a `try/except` around processing logic, that logic
   belongs in `services/`.
+- **Parsing is LlamaIndex's job.** `pipeline.py` picks a reader per extension
+  (`PyMuPDFReader`, `DocxReader`, `PptxReader`) and gets `Document` objects
+  back. Don't hand-roll a parser for a new format — check for a reader in
+  `llama-index-readers-file` first. Two deliberate exceptions live outside it:
+  images go straight to `gemini_ocr` because `ImageReader`'s default parser
+  pulls torch + transformers, and scanned PDFs go through `ocr_fallback`
+  because `PyMuPDFReader` only reads the text layer.
+- **Documents are the unit, text is the projection.** `download_and_extract`
+  returns both; the route strips `documents` before serialising because
+  `Document` is not JSON-safe. Keep it that way — those Documents are what the
+  RAG pipeline indexes.
 - **Errors are logged once, at the point of first catch.** Callers do not
-  re-log. Clients only ever see `user_message`, never internals.
+  re-log. Clients only ever see `user_message`, never internals. Readers raise
+  whatever their backing library raises, so `pipeline.py` maps anything
+  unrecognised to `CorruptedFileError`.
 - **Adding an endpoint:** new module in `api/routes/`, schemas in `schemas/`,
   logic in `services/`, then `include_router` in `main.py`.
 
