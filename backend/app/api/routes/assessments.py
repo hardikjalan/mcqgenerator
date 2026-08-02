@@ -8,6 +8,7 @@ response. Extraction logic lives in app/services/extraction/pipeline.py.
 """
 
 from fastapi import APIRouter
+from llama_index.core.schema import Document
 
 from app.core.config import MAX_CUMULATIVE_SIZE_MB
 from app.core.logger import get_logger
@@ -65,10 +66,15 @@ def generate_assessment(payload: GenerateRequest):
             logger.warning("[ERROR] Text request with empty textContent")
             return error_response("No text content was provided.", status_code=400)
         logger.info("[EXTRACT] Text input — %d chars", len(payload.textContent))
+        # Wrapped as a Document so both branches hand the RAG pipeline the same
+        # shape — pasted text is just a source with no file to parse.
         extracted_sources.append({
             "name": "Pasted Text",
             "status": "success",
             "text": payload.textContent,
+            "documents": [
+                Document(text=payload.textContent, metadata={"source": "pasted_text"})
+            ],
             "error": None,
         })
 
@@ -113,7 +119,15 @@ def generate_assessment(payload: GenerateRequest):
     else:
         logger.info("→ Response: %d/%d sources extracted — all OK", len(successful), total)
 
+    # LlamaIndex Documents stay server-side: they are what the RAG pipeline will
+    # index, and they are not JSON-serialisable. The response carries the
+    # flattened text, which is the shape the faculty dashboard already reads.
+    response_sources = [
+        {k: v for k, v in source.items() if k != "documents"}
+        for source in extracted_sources
+    ]
+
     return success_response({
         "message": f"Extracted text from {len(successful)} of {total} source(s).",
-        "extracted_sources": extracted_sources,
+        "extracted_sources": response_sources,
     })

@@ -40,7 +40,11 @@ TESSERACT_CMD_PATH = os.getenv("TESSERACT_CMD_PATH")
 # avoids pointless Supabase uploads. Keep the two in sync.
 MAX_CUMULATIVE_SIZE_MB = 5
 
-SUPPORTED_EXTENSIONS = {"pdf", "docx", "pptx", "ppt", "png", "jpg", "jpeg"}
+# Mirrors ALLOWED_EXTENSIONS in frontend/lib/file-upload.ts. Legacy binary
+# ".ppt" is deliberately absent: python-pptx cannot read it, so accepting it
+# only bought a download followed by a parse failure. The frontend never
+# offered it either.
+SUPPORTED_EXTENSIONS = {"pdf", "docx", "pptx", "png", "jpg", "jpeg"}
 
 # Cap on Gemini OCR calls per document — keeps API cost predictable.
 MAX_IMAGES_PER_DOC = 5
