@@ -26,7 +26,8 @@ const NAV: NavItem[] = [
   { label: 'Results',       Icon: BarChart3 },
 ]
 
-type ExtractedSource = { name: string; status: string; text: string; error: string | null }
+/** Mirrors SourceResult in backend/app/schemas.py — change both together. */
+type ExtractedSource = { name: string; ok: boolean; chars: number; error: string | null }
 
 export default function FacultyDashboard() {
   return (
@@ -199,13 +200,13 @@ function QuizBuilder() {
       })
 
       if (!res.ok) {
+        // Every backend failure is {"error": "<one sentence>"} — safe to show.
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.error ?? err.detail ?? `Server error: ${res.status}`)
+        throw new Error(err.error ?? `Server error: ${res.status}`)
       }
 
       const data = await res.json()
-      // Backend wraps the success payload under "data" via success_response()
-      setExtractedSources(data.data?.extracted_sources ?? [])
+      setExtractedSources(data.sources ?? [])
     } catch (err: unknown) {
       setGenError(
         err instanceof Error ? err.message : 'Couldn’t reach the server. Is the backend running?'
@@ -420,7 +421,7 @@ function QuizBuilder() {
               title="Read from your files"
               aside={
                 <span className="text-xs text-text-3 tabular">
-                  {extractedSources.filter(s => s.status === 'success').length}/{extractedSources.length}
+                  {extractedSources.filter(s => s.ok).length}/{extractedSources.length}
                 </span>
               }
             />
@@ -428,17 +429,17 @@ function QuizBuilder() {
               {extractedSources.map((src, i) => (
                 <li key={i} className="flex flex-col gap-1">
                   <span className="flex items-center gap-2 min-w-0">
-                    {src.status === 'success'
+                    {src.ok
                       ? <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" aria-hidden="true" />
                       : <AlertCircle className="w-3.5 h-3.5 text-danger shrink-0" aria-hidden="true" />}
                     <span className="text-sm text-text truncate flex-1">{src.name}</span>
-                    {src.status === 'success' && (
+                    {src.ok && (
                       <span className="text-xs text-text-3 tabular shrink-0">
-                        {src.text.length.toLocaleString()} ch
+                        {src.chars.toLocaleString()} ch
                       </span>
                     )}
                   </span>
-                  {src.status !== 'success' && src.error && (
+                  {!src.ok && src.error && (
                     <p className="text-xs text-danger pl-6">{src.error}</p>
                   )}
                 </li>

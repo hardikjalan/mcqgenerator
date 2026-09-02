@@ -16,13 +16,14 @@ import { createClient } from '@/lib/supabase/server'
  */
 
 /** The profile row is created by a trigger on auth.users. On a first sign-in
- *  that row can land a moment after the session does, so a miss is retried
- *  once before we treat it as genuinely absent. */
+ *  that row can land up to ~1.5s after the session does (trigger runs async).
+ *  We retry 3 times with 600ms gaps — 1.8s total budget — before giving up
+ *  and sending the user to onboarding, which will create the row anyway. */
 async function readRole(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string
 ): Promise<string | null> {
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     const { data, error } = await supabase
       .from('profiles')
       .select('role')
@@ -30,11 +31,15 @@ async function readRole(
       .maybeSingle()
 
     if (error) {
-      console.error('[auth/callback] Profile read failed:', error.message)
+      // Log both the human message and the PostgREST code.
+      // 42501 = permission denied → migration 06_signin_hardening.sql may not have been run.
+      // PGRST116 = no row found (shouldn't reach here via maybeSingle, but guard anyway).
+      console.error('[auth/callback] Profile read failed:', error.message, `(code: ${error.code})`)
       return null
     }
     if (data) return data.role ?? null
-    if (attempt === 0) await new Promise(r => setTimeout(r, 250))
+    // Row not yet visible — wait before retrying.
+    if (attempt < 2) await new Promise(r => setTimeout(r, 600))
   }
 
   console.warn('[auth/callback] No profile row for user', userId, '— sending to onboarding')
@@ -103,7 +108,13 @@ export async function GET(request: Request) {
   })
 
   if (syncError) {
-    console.error('[auth/callback] upsert_profile_on_login failed:', syncError.message)
+    // 42501 = permission denied on the RPC — run 06_signin_hardening.sql in Supabase SQL Editor.
+    console.error(
+      '[auth/callback] upsert_profile_on_login failed:',
+      syncError.message,
+      `(code: ${syncError.code})`,
+      syncError.code === '42501' ? '→ GRANT EXECUTE missing — run 06_signin_hardening.sql' : ''
+    )
 
     // Fall back to a direct upsert. RLS allows a user to write their own row
     // (profiles_insert_own / profiles_update_own), so this works even if the
@@ -115,7 +126,7 @@ export async function GET(request: Request) {
 
     if (fallbackError) {
       // Still not fatal. The session is valid; onboarding creates the row.
-      console.error('[auth/callback] Fallback profile upsert failed:', fallbackError.message)
+      console.error('[auth/callback] Fallback profile upsert failed:', fallbackError.message, `(code: ${fallbackError.code})`)
     }
   }
 

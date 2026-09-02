@@ -32,11 +32,19 @@ export async function proxy(request: NextRequest) {
   }
 
   // ── Rule 2: Logged-in user — read their role ─────────────────────────────
-  const { data: profile } = await supabase
+  // maybeSingle() instead of single(): on a brand-new account the profile row
+  // may not exist yet (the DB trigger is still running). single() would throw
+  // PGRST116 and poison the role lookup; maybeSingle() returns null cleanly,
+  // which Rule 3 below handles by redirecting to /onboarding.
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
+
+  if (profileError) {
+    console.error('[proxy] Profile role query failed:', profileError.message, profileError.code)
+  }
 
   const role = profile?.role
 
