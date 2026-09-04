@@ -3,12 +3,13 @@ doc_loader.py
 =============
 Loader for legacy Word documents (.doc — OLE2 binary format).
 
-``python-docx`` only supports the modern XML-based ``.docx`` format.  For
-binary ``.doc`` files we use ``olefile`` to read the OLE2 compound document
-and extract the raw text stream (``WordDocument`` stream → decoded text).
+``python-docx`` only supports the modern XML-based ``.docx`` format.
+This loader attempts to extract text from binary ``.doc`` files using
+the following fallback strategies:
 
-This provides a pure-Python fallback that works on Windows without requiring
-external tools like LibreOffice or antiword.
+1. COM Automation (win32com) — A reliable, self-contained Python solution 
+   (requires Microsoft Word to be installed on Windows).
+2. Antiword — A robust system-level extractor fallback.
 
 Limitations
 -----------
@@ -19,7 +20,7 @@ Limitations
 
 from __future__ import annotations
 
-import re
+import subprocess
 from pathlib import Path
 
 from llama_index.core.schema import Document
@@ -33,13 +34,11 @@ from app.services.rag.ingestion.exceptions import CorruptedFileError, EmptyDocum
 @loader_for(SupportedFormat.DOC)
 class DocLegacyLoader(BaseLoader):
     """
-    Read a legacy .doc file via OLE2 text-stream extraction.
-
-    Falls back to raw binary scraping if the Word Document stream is absent.
+    Read a legacy .doc file using multiple fallback strategies.
     """
 
     def load(self, file_path: Path, metadata: StandardDocumentMetadata) -> list[Document]:
-        text = self._extract_text(file_path)
+        text, method = self._extract_text_with_fallbacks(file_path)
 
         if not text.strip():
             raise EmptyDocumentError(file_path.name)
@@ -50,7 +49,7 @@ class DocLegacyLoader(BaseLoader):
                 "page_or_slide_num": 1,
                 "total_pages_or_slides": 1,
                 "custom_metadata": {
-                    "extraction_method": "olefile_text_stream",
+                    "extraction_method": method,
                     "format_note": "Legacy .doc — formatting not preserved",
                 },
             }
@@ -60,59 +59,83 @@ class DocLegacyLoader(BaseLoader):
 
     # ── Internal ──────────────────────────────────────────────────────────
 
+    def _extract_text_with_fallbacks(self, file_path: Path) -> tuple[str, str]:
+        """
+        Attempt to extract text using available methods, falling back on failure.
+        Returns a tuple of (extracted_text, method_name).
+        """
+        errors = []
+
+        # 1. Try win32com (Reliable, Python-based on Windows, requires Word)
+        try:
+            return self._extract_via_com(file_path), "win32com"
+        except Exception as e:
+            errors.append(f"win32com failed: {e}")
+
+        # 2. Try antiword (System-level fallback)
+        try:
+            return self._extract_via_antiword(file_path), "antiword"
+        except Exception as e:
+            errors.append(f"antiword failed: {e}")
+
+        # If both methods failed, return a clear error indicating no supported extractor.
+        raise CorruptedFileError(
+            file_path.name,
+            reason=(
+                "No supported .doc extraction method was available or successful. "
+                "Ensure Microsoft Word is installed (if on Windows) or 'antiword' is in your PATH. "
+                f"Diagnostics: {'; '.join(errors)}"
+            )
+        )
+
     @staticmethod
-    def _extract_text(file_path: Path) -> str:
-        """Extract readable text from a .doc OLE2 file."""
+    def _extract_via_com(file_path: Path) -> str:
+        """Extract text using Word COM automation (Windows only, requires Word)."""
         try:
-            import olefile
+            import win32com.client
+            import pythoncom
         except ImportError as exc:
-            raise CorruptedFileError(
-                file_path.name,
-                reason="olefile is required for .doc support — pip install olefile",
-            ) from exc
+            raise RuntimeError("pywin32 is not installed.") from exc
 
+        # Initialize COM for the current thread
+        pythoncom.CoInitialize()
+
+        word = None
+        doc = None
         try:
-            ole = olefile.OleFileIO(str(file_path))
-        except Exception as exc:
-            raise CorruptedFileError(
-                file_path.name,
-                reason=f"Not a valid OLE2 file: {exc}",
-            ) from exc
+            word = win32com.client.DispatchEx("Word.Application")
+            word.Visible = False
+            word.DisplayAlerts = False
 
-        try:
-            # The "WordDocument" stream contains the raw binary document data.
-            # The text portion lives in a separate stream, but the most
-            # reliable pure-Python approach is to read all streams and scrape
-            # printable text.
-            text_parts: list[str] = []
-
-            for stream_path in ole.listdir():
-                try:
-                    data = ole.openstream(stream_path).read()
-                    # Try UTF-16 LE (the encoding Word uses internally)
-                    try:
-                        decoded = data.decode("utf-16-le", errors="ignore")
-                    except UnicodeDecodeError:
-                        decoded = data.decode("latin-1", errors="ignore")
-
-                    # Keep only lines with printable content
-                    clean = _clean_binary_text(decoded)
-                    if clean:
-                        text_parts.append(clean)
-                except Exception:
-                    continue
-
-            return "\n\n".join(text_parts)
+            # Open file as read-only
+            doc = word.Documents.Open(str(file_path), ReadOnly=True)
+            text = doc.Content.Text
+            return text
         finally:
-            ole.close()
+            if doc is not None:
+                try:
+                    doc.Close(False)  # WdDoNotSaveChanges
+                except Exception:
+                    pass
+            if word is not None:
+                try:
+                    word.Quit()
+                except Exception:
+                    pass
+            pythoncom.CoUninitialize()
 
-
-def _clean_binary_text(raw: str) -> str:
-    """Strip control characters and collapse whitespace from binary-decoded text."""
-    # Remove null bytes and most control chars except newline/tab
-    cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]", "", raw)
-    # Collapse runs of whitespace
-    cleaned = re.sub(r"[ \t]+", " ", cleaned)
-    # Collapse blank lines
-    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
-    return cleaned.strip()
+    @staticmethod
+    def _extract_via_antiword(file_path: Path) -> str:
+        """Extract text using the antiword CLI tool."""
+        try:
+            result = subprocess.run(
+                ["antiword", str(file_path)],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return result.stdout
+        except FileNotFoundError as exc:
+            raise RuntimeError("antiword is not installed or not in PATH.") from exc
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(f"antiword returned {exc.returncode}: {exc.stderr.strip()}") from exc
