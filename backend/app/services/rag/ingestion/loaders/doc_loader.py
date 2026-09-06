@@ -28,20 +28,19 @@ from llama_index.core.schema import Document
 from app.services.rag.schemas import SupportedFormat, StandardDocumentMetadata
 from app.services.rag.ingestion.base import BaseLoader
 from app.services.rag.ingestion.registry import loader_for
-from app.services.rag.ingestion.exceptions import CorruptedFileError, EmptyDocumentError
+from app.services.rag.ingestion.exceptions import CorruptedFileError
 
 
 @loader_for(SupportedFormat.DOC)
 class DocLegacyLoader(BaseLoader):
     """
     Read a legacy .doc file using multiple fallback strategies.
+
+    Text cleaning is handled centrally by ``BaseLoader.clean_and_validate()``.
     """
 
     def load(self, file_path: Path, metadata: StandardDocumentMetadata) -> list[Document]:
         text, method = self._extract_text_with_fallbacks(file_path)
-
-        if not text.strip():
-            raise EmptyDocumentError(file_path.name)
 
         doc = Document(text=text)
         doc_meta = metadata.model_copy(
@@ -55,7 +54,7 @@ class DocLegacyLoader(BaseLoader):
             }
         )
         self._attach_metadata(doc, doc_meta)
-        return [doc]
+        return self.clean_and_validate([doc], file_name=file_path.name)
 
     # ── Internal ──────────────────────────────────────────────────────────
 

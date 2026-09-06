@@ -20,7 +20,6 @@ Limitations
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from llama_index.core.schema import Document
@@ -28,7 +27,7 @@ from llama_index.core.schema import Document
 from app.services.rag.schemas import SupportedFormat, StandardDocumentMetadata
 from app.services.rag.ingestion.base import BaseLoader
 from app.services.rag.ingestion.registry import loader_for
-from app.services.rag.ingestion.exceptions import CorruptedFileError, EmptyDocumentError
+from app.services.rag.ingestion.exceptions import CorruptedFileError
 
 
 @loader_for(SupportedFormat.PPT)
@@ -38,13 +37,12 @@ class PptLegacyLoader(BaseLoader):
 
     The entire presentation is returned as a single Document since slide
     boundaries are unreliable in the binary format.
+
+    Text cleaning is handled centrally by ``BaseLoader.clean_and_validate()``.
     """
 
     def load(self, file_path: Path, metadata: StandardDocumentMetadata) -> list[Document]:
         text = self._extract_text(file_path)
-
-        if not text.strip():
-            raise EmptyDocumentError(file_path.name)
 
         doc = Document(text=text)
         doc_meta = metadata.model_copy(
@@ -58,7 +56,7 @@ class PptLegacyLoader(BaseLoader):
             }
         )
         self._attach_metadata(doc, doc_meta)
-        return [doc]
+        return self.clean_and_validate([doc], file_name=file_path.name)
 
     # ── Internal ──────────────────────────────────────────────────────────
 
@@ -93,20 +91,11 @@ class PptLegacyLoader(BaseLoader):
                     except UnicodeDecodeError:
                         decoded = data.decode("latin-1", errors="ignore")
 
-                    clean = _clean_binary_text(decoded)
-                    if clean:
-                        text_parts.append(clean)
+                    if decoded.strip():
+                        text_parts.append(decoded)
                 except Exception:
                     continue
 
             return "\n\n".join(text_parts)
         finally:
             ole.close()
-
-
-def _clean_binary_text(raw: str) -> str:
-    """Strip control characters and collapse whitespace from binary-decoded text."""
-    cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]", "", raw)
-    cleaned = re.sub(r"[ \t]+", " ", cleaned)
-    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
-    return cleaned.strip()

@@ -18,7 +18,7 @@ from llama_index.readers.file import DocxReader
 from app.services.rag.schemas import SupportedFormat, StandardDocumentMetadata
 from app.services.rag.ingestion.base import BaseLoader
 from app.services.rag.ingestion.registry import loader_for
-from app.services.rag.ingestion.exceptions import CorruptedFileError, EmptyDocumentError
+from app.services.rag.ingestion.exceptions import CorruptedFileError
 
 
 @loader_for(SupportedFormat.DOCX)
@@ -26,6 +26,7 @@ class DocxLoader(BaseLoader):
     """Read a .docx file and return its content as Document(s)."""
 
     def __init__(self) -> None:
+        super().__init__()
         self._reader = DocxReader()
 
     def load(self, file_path: Path, metadata: StandardDocumentMetadata) -> list[Document]:
@@ -36,9 +37,6 @@ class DocxLoader(BaseLoader):
                 file_path.name,
                 reason=f"python-docx could not read this file: {exc}",
             ) from exc
-
-        if not raw_docs or all(not doc.text.strip() for doc in raw_docs):
-            raise EmptyDocumentError(file_path.name)
 
         result: list[Document] = []
         total = len(raw_docs)
@@ -56,4 +54,4 @@ class DocxLoader(BaseLoader):
             self._attach_metadata(doc, section_meta)
             result.append(doc)
 
-        return result
+        return self.clean_and_validate(result, file_name=file_path.name)

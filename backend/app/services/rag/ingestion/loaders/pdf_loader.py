@@ -17,7 +17,7 @@ from llama_index.readers.file import PDFReader
 from app.services.rag.schemas import SupportedFormat, StandardDocumentMetadata
 from app.services.rag.ingestion.base import BaseLoader
 from app.services.rag.ingestion.registry import loader_for
-from app.services.rag.ingestion.exceptions import CorruptedFileError, EmptyDocumentError
+from app.services.rag.ingestion.exceptions import CorruptedFileError
 
 
 @loader_for(SupportedFormat.PDF)
@@ -25,6 +25,7 @@ class PDFLoader(BaseLoader):
     """Read a PDF file and return one Document per page."""
 
     def __init__(self) -> None:
+        super().__init__()
         self._reader = PDFReader(return_full_document=False)
 
     def load(self, file_path: Path, metadata: StandardDocumentMetadata) -> list[Document]:
@@ -35,9 +36,6 @@ class PDFLoader(BaseLoader):
                 file_path.name,
                 reason=f"pypdf could not read this PDF: {exc}",
             ) from exc
-
-        if not raw_docs:
-            raise EmptyDocumentError(file_path.name)
 
         total_pages = len(raw_docs)
         result: list[Document] = []
@@ -56,4 +54,4 @@ class PDFLoader(BaseLoader):
             self._attach_metadata(doc, page_meta)
             result.append(doc)
 
-        return result
+        return self.clean_and_validate(result, file_name=file_path.name)
