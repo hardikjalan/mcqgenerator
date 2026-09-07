@@ -73,3 +73,13 @@ class IngestionResult(BaseModel):
     class Config:
         use_enum_values = True
         arbitrary_types_allowed = True
+
+
+# ── Layer 3 (Chunking) re-exports ────────────────────────────────────────────
+# Kept here so downstream layers can import from the top-level schemas module.
+
+from app.services.rag.chunking.models import (  # noqa: E402, F401
+    ChunkingConfig,
+    ChunkingResult,
+    SemanticType,
+)
