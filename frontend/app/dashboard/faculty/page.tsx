@@ -180,9 +180,18 @@ function QuizBuilder() {
         }))
         .filter(f => f.signedUrl)
 
+      // The API scopes uploads, indexing and retrieval to the signed-in user,
+      // so it needs the session token. Without it every faculty member would
+      // share one anonymous pool of material.
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Your session has expired. Please sign in again.')
+
       const res = await fetch(apiUrl('/generate-assessment'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           sourceType: 'upload',
           textContent: null,

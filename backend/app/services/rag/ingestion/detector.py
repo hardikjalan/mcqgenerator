@@ -31,6 +31,19 @@ _ZIP_MAGIC = b"PK\x03\x04"
 # OLE2 Compound Document (.doc, .ppt, .xls)
 _OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 
+# Image signatures. Each is unambiguous, so images never reach the container
+# disambiguation below. WEBP is the odd one: "RIFF" then four length bytes
+# then "WEBP", so it is matched in two pieces.
+_IMAGE_MAGIC: tuple[tuple[bytes, SupportedFormat], ...] = (
+    (b"\x89PNG\r\n\x1a\n", SupportedFormat.PNG),
+    (b"\xff\xd8\xff", SupportedFormat.JPG),
+    (b"GIF87a", SupportedFormat.GIF),
+    (b"GIF89a", SupportedFormat.GIF),
+    (b"BM", SupportedFormat.BMP),
+    (b"II*\x00", SupportedFormat.TIFF),
+    (b"MM\x00*", SupportedFormat.TIFF),
+)
+
 
 # ── Extension → format lookup ────────────────────────────────────────────────
 
@@ -40,6 +53,14 @@ _EXT_MAP: dict[str, SupportedFormat] = {
     ".doc":  SupportedFormat.DOC,
     ".pptx": SupportedFormat.PPTX,
     ".ppt":  SupportedFormat.PPT,
+    ".png":  SupportedFormat.PNG,
+    ".jpg":  SupportedFormat.JPG,
+    ".jpeg": SupportedFormat.JPG,
+    ".webp": SupportedFormat.WEBP,
+    ".gif":  SupportedFormat.GIF,
+    ".bmp":  SupportedFormat.BMP,
+    ".tif":  SupportedFormat.TIFF,
+    ".tiff": SupportedFormat.TIFF,
 }
 
 # MIME → format (used when magic bytes match a container and we need to
@@ -50,6 +71,12 @@ _MIME_MAP: dict[str, SupportedFormat] = {
     "application/vnd.openxmlformats-officedocument.presentationml.presentation": SupportedFormat.PPTX,
     "application/msword": SupportedFormat.DOC,
     "application/vnd.ms-powerpoint": SupportedFormat.PPT,
+    "image/png":  SupportedFormat.PNG,
+    "image/jpeg": SupportedFormat.JPG,
+    "image/webp": SupportedFormat.WEBP,
+    "image/gif":  SupportedFormat.GIF,
+    "image/bmp":  SupportedFormat.BMP,
+    "image/tiff": SupportedFormat.TIFF,
 }
 
 
@@ -74,12 +101,20 @@ class FileTypeDetector:
         file_path:
             Path to the file on disk.  Must exist and be readable.
         """
-        header = _read_header(file_path, 8)
+        # 16 bytes rather than 8: WEBP's marker sits at offset 8.
+        header = _read_header(file_path, 16)
         ext = file_path.suffix.lower()
 
         # ── 1. Magic bytes ────────────────────────────────────────────────
         if header.startswith(_PDF_MAGIC):
             return SupportedFormat.PDF
+
+        for signature, fmt in _IMAGE_MAGIC:
+            if header.startswith(signature):
+                return fmt
+
+        if header.startswith(b"RIFF") and header[8:12] == b"WEBP":
+            return SupportedFormat.WEBP
 
         if header.startswith(_ZIP_MAGIC):
             # ZIP container: could be .docx or .pptx — use extension to

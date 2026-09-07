@@ -47,6 +47,7 @@ import app.services.rag.ingestion.loaders.docx_loader  # noqa: F401
 import app.services.rag.ingestion.loaders.doc_loader   # noqa: F401
 import app.services.rag.ingestion.loaders.pptx_loader  # noqa: F401
 import app.services.rag.ingestion.loaders.ppt_loader   # noqa: F401
+import app.services.rag.ingestion.loaders.image_loader  # noqa: F401
 
 
 class IngestionManager:

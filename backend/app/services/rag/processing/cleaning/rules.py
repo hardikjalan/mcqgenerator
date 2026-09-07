@@ -14,6 +14,10 @@ Functions
 2. ``normalize_unicode``
 3. ``remove_control_characters``
 4. ``normalize_whitespace``
+
+``repair_line_wraps`` is separate. It is not applied to every format — only
+to those whose line breaks are a layout artifact rather than meaning. See its
+docstring.
 """
 
 from __future__ import annotations
@@ -103,3 +107,70 @@ def normalize_whitespace(text: str) -> str:
              for line in text.split("\n")]
     joined = "\n".join(lines)
     return _EXCESS_NEWLINES_RE.sub("\n\n", joined)
+
+
+# ── Optional: line-wrap repair (PDF and other fixed-layout sources) ───────────
+
+# A PDF stores where each line of text was *printed*, not where sentences
+# begin and end. Extracting it therefore produces a newline every ~90
+# characters, in the middle of sentences:
+#
+#   "...convert light energy\ninto chemical energy stored in glucose."
+#
+# Worse, a real paragraph break looks exactly the same — one newline — so the
+# document's actual structure is gone. Left alone this wrecks chunking, since
+# a sentence-aware splitter that trusts newlines cuts mid-sentence, and each
+# chunk then starts or ends on half a thought.
+#
+# This is NOT applied to slides or Word documents, where a newline separates a
+# bullet or a paragraph and genuinely means something.
+
+# A line ending in sentence-final punctuation is a real ending. A closing
+# quote or bracket may follow it.
+_SENTENCE_END_RE = re.compile(r'[.!?:;][")\]\u2019\u201d]*$')
+
+# A word split across lines: "photosyn-\nthesis". Joined without the hyphen.
+_HYPHEN_BREAK_RE = re.compile(r"(\w)-\n(\w)")
+
+# A line starting a new block rather than continuing one: a bullet, a numbered
+# item, or a heading-like line beginning with a capital after a full stop.
+_NEW_BLOCK_RE = re.compile(r"^\s*([\u2022\u2023\u25e6\u2043\u2219*\-\u2013\u2014]|\(?\d+[.)]|[A-Z]\.)\s")
+
+
+def repair_line_wraps(text: str) -> str:
+    """Rejoin lines that a fixed layout broke in the middle of a sentence.
+
+    A line is treated as continuing the previous one unless there is evidence
+    otherwise: the previous line ended a sentence, the next line starts a
+    bullet or numbered item, or either side is blank. Being conservative here
+    matters — wrongly joining two paragraphs costs a little structure, but
+    wrongly splitting a sentence costs a chunk boundary in the wrong place,
+    which is what the whole exercise is trying to avoid.
+    """
+    text = _HYPHEN_BREAK_RE.sub(r"\1\2", text)
+
+    lines = text.split("\n")
+    out: list[str] = []
+
+    for line in lines:
+        stripped = line.strip()
+
+        if not out or not stripped or not out[-1].strip():
+            out.append(line)
+            continue
+
+        previous = out[-1].rstrip()
+
+        if _SENTENCE_END_RE.search(previous) or _NEW_BLOCK_RE.match(line):
+            out.append(line)
+            continue
+
+        # A short previous line is likely a heading or a table cell, not a
+        # wrapped sentence — a wrapped line runs nearly the full column width.
+        if len(previous) < 40:
+            out.append(line)
+            continue
+
+        out[-1] = f"{previous} {stripped}"
+
+    return "\n".join(out)
