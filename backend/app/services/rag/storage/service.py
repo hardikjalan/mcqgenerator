@@ -68,6 +68,20 @@ class VectorStorageManager:
 
         # 3. Map to Supabase rows
         rows: list[dict[str, Any]] = []
+
+        # 3a. Parents (stored with embedding=None for simple parent-context lookup in Layer 5)
+        parents = chunking_result.parent_chunks or []
+        for parent in parents:
+            rows.append({
+                "node_id": parent.node_id,
+                "parent_id": None,
+                "source_id": source_id,
+                "content": parent.text,
+                "embedding": None,
+                "metadata": parent.metadata,
+            })
+
+        # 3b. Children (stored with embeddings for vector similarity search)
         for child, embedding in zip(children, embeddings):
             meta = child.metadata
 
@@ -87,9 +101,9 @@ class VectorStorageManager:
         # 4. Upsert into Supabase
         table_name = self.config.table_name
         try:
-            # We use upsert so that if the node_id already exists, it updates.
-            response = self.supabase.table(table_name).upsert(rows).execute()
-            result.chunks_inserted = len(response.data)
+            # We use upsert on node_id so re-processing a document safely updates existing chunks.
+            response = self.supabase.table(table_name).upsert(rows, on_conflict="node_id").execute()
+            result.chunks_inserted = len(response.data or [])
         except Exception as e:
             logger.error("Supabase upsert failed for source_id=%s: %s", source_id, e)
             result.errors.append(f"Database insertion failed: {e}")

@@ -83,3 +83,15 @@ from app.services.rag.chunking.models import (  # noqa: E402, F401
     ChunkingResult,
     SemanticType,
 )
+
+
+# ── Layer 5 (Retrieval) re-exports ───────────────────────────────────────────
+
+from app.services.rag.retrieval.models import (  # noqa: E402, F401
+    RetrievalConfig,
+    RetrievalQuery,
+    RetrievalResult,
+    RetrievedChildChunk,
+    RetrievedParentContext,
+)
+
