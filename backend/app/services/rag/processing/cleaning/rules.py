@@ -13,7 +13,8 @@ Functions
 1. ``normalize_line_endings``
 2. ``normalize_unicode``
 3. ``remove_control_characters``
-4. ``normalize_whitespace``
+4. ``strip_page_number_footers``
+5. ``normalize_whitespace``
 """
 
 from __future__ import annotations
@@ -80,7 +81,60 @@ def remove_control_characters(text: str) -> str:
     return _CONTROL_CHAR_RE.sub("", text)
 
 
-# ── 4. Whitespace normalization ──────────────────────────────────────────────
+# ── 4. Page-number footer stripping ──────────────────────────────────────────
+
+# Matches isolated page-number lines such as "14", "Page 14", "Page 14 of 120",
+# or "- 14 -".  Only matches lines that contain nothing but the page reference.
+_PAGE_NUM_LINE_RE = re.compile(
+    r"^\s*(?:(?:Page\s+)?\d+(?:\s+of\s+\d+)?|-\s*\d+\s*-)\s*$",
+    re.IGNORECASE,
+)
+
+
+def _is_protected_line(line: str) -> bool:
+    """Return True if *line* contains structure that must not be stripped.
+
+    Protected content:
+    - Markdown headings (``#``)
+    - Markdown table rows (``|``)
+    - Math delimiters (``$``, ``$$``)
+    - Numbered list items (``1.``, ``2.``)
+    """
+    stripped = line.lstrip()
+    if stripped.startswith("#"):
+        return True
+    if "|" in stripped:
+        return True
+    if "$" in stripped:
+        return True
+    # Numbered list: digit(s) followed by a dot and at least one space + text.
+    if re.match(r"\d+\.\s+\S", stripped):
+        return True
+    return False
+
+
+def strip_page_number_footers(text: str) -> str:
+    """Remove isolated page-number lines from the text body.
+
+    These are redundant in the pipeline because the authoritative page
+    number is already stored in ``doc.metadata["page_or_slide_num"]``.
+
+    Lines containing headings (``#``), table cells (``|``), math
+    delimiters (``$``), or numbered-list items are never touched.
+    """
+    lines = text.split("\n")
+    cleaned: list[str] = []
+    for line in lines:
+        if _is_protected_line(line):
+            cleaned.append(line)
+        elif _PAGE_NUM_LINE_RE.match(line):
+            continue  # drop isolated page-number line
+        else:
+            cleaned.append(line)
+    return "\n".join(cleaned)
+
+
+# ── 5. Whitespace normalization ──────────────────────────────────────────────
 
 # Matches 2+ spaces/tabs that follow a non-whitespace character,
 # so leading whitespace on each line is never matched.
@@ -91,15 +145,22 @@ _EXCESS_NEWLINES_RE = re.compile(r"\n{3,}")
 
 
 def normalize_whitespace(text: str) -> str:
-    """Basic whitespace normalization.
+    """Structure-aware whitespace normalization.
 
     * Runs of 2+ spaces/tabs that follow a non-whitespace character
-      are collapsed to a single space.
+      are collapsed to a single space — **except** on lines containing
+      ``|`` (Markdown table rows), which are left as-is to preserve
+      column alignment.
     * Leading whitespace on each line is left as-is.
     * Trailing whitespace per line is stripped.
     * 3+ consecutive newlines are collapsed to ``\\n\\n``.
     """
-    lines = [_INTERIOR_MULTI_WS_RE.sub(" ", line).rstrip()
-             for line in text.split("\n")]
+    lines: list[str] = []
+    for line in text.split("\n"):
+        if "|" in line:
+            # Preserve table row spacing exactly.
+            lines.append(line.rstrip())
+        else:
+            lines.append(_INTERIOR_MULTI_WS_RE.sub(" ", line).rstrip())
     joined = "\n".join(lines)
     return _EXCESS_NEWLINES_RE.sub("\n\n", joined)

@@ -28,18 +28,13 @@ _PDF_MAGIC = b"%PDF-"
 # ZIP-based Office Open XML (.docx, .pptx)
 _ZIP_MAGIC = b"PK\x03\x04"
 
-# OLE2 Compound Document (.doc, .ppt, .xls)
-_OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
-
 
 # ── Extension → format lookup ────────────────────────────────────────────────
 
 _EXT_MAP: dict[str, SupportedFormat] = {
     ".pdf":  SupportedFormat.PDF,
     ".docx": SupportedFormat.DOCX,
-    ".doc":  SupportedFormat.DOC,
     ".pptx": SupportedFormat.PPTX,
-    ".ppt":  SupportedFormat.PPT,
 }
 
 # MIME → format (used when magic bytes match a container and we need to
@@ -48,8 +43,6 @@ _MIME_MAP: dict[str, SupportedFormat] = {
     "application/pdf": SupportedFormat.PDF,
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document":   SupportedFormat.DOCX,
     "application/vnd.openxmlformats-officedocument.presentationml.presentation": SupportedFormat.PPTX,
-    "application/msword": SupportedFormat.DOC,
-    "application/vnd.ms-powerpoint": SupportedFormat.PPT,
 }
 
 
@@ -94,18 +87,6 @@ class FileTypeDetector:
                 return mime_fmt
             # If we still don't know, try probing the ZIP contents.
             return _probe_zip_contents(file_path, ext)
-
-        if header.startswith(_OLE2_MAGIC):
-            # OLE2 container: could be .doc or .ppt — extension decides.
-            if ext == ".doc":
-                return SupportedFormat.DOC
-            if ext == ".ppt":
-                return SupportedFormat.PPT
-            mime_fmt = _detect_from_mime(file_path)
-            if mime_fmt and mime_fmt in (SupportedFormat.DOC, SupportedFormat.PPT):
-                return mime_fmt
-            # Default to .doc for OLE2 without a clearer signal.
-            return SupportedFormat.DOC
 
         # ── 2. Extension fallback ─────────────────────────────────────────
         if ext in _EXT_MAP:

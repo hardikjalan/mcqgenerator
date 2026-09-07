@@ -20,6 +20,7 @@ from app.services.rag.processing.cleaning.rules import (
     normalize_line_endings,
     normalize_unicode,
     remove_control_characters,
+    strip_page_number_footers,
     normalize_whitespace,
 )
 
@@ -29,13 +30,15 @@ class TextCleaner:
 
     Rule order:
         normalize_line_endings → normalize_unicode →
-        remove_control_characters → normalize_whitespace → strip()
+        remove_control_characters → strip_page_number_footers →
+        normalize_whitespace → strip()
     """
 
     _PIPELINE = (
         normalize_line_endings,
         normalize_unicode,
         remove_control_characters,
+        strip_page_number_footers,
         normalize_whitespace,
     )
 

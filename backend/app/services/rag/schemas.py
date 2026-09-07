@@ -23,9 +23,7 @@ class SupportedFormat(str, Enum):
     """File formats the ingestion layer can process."""
     PDF = "pdf"
     DOCX = "docx"
-    DOC = "doc"
     PPTX = "pptx"
-    PPT = "ppt"
 
 
 # ── Metadata attached to every ingested Document ─────────────────────────────

@@ -18,6 +18,7 @@ from app.services.rag.processing.cleaning.rules import (  # noqa: F401
     normalize_line_endings,
     normalize_unicode,
     remove_control_characters,
+    strip_page_number_footers,
     normalize_whitespace,
 )
 
@@ -27,5 +28,6 @@ __all__ = [
     "normalize_line_endings",
     "normalize_unicode",
     "remove_control_characters",
+    "strip_page_number_footers",
     "normalize_whitespace",
 ]

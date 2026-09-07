@@ -44,9 +44,7 @@ from app.services.rag.ingestion.exceptions import IngestionError
 # which registers each loader with the global registry.
 import app.services.rag.ingestion.loaders.pdf_loader   # noqa: F401
 import app.services.rag.ingestion.loaders.docx_loader  # noqa: F401
-import app.services.rag.ingestion.loaders.doc_loader   # noqa: F401
 import app.services.rag.ingestion.loaders.pptx_loader  # noqa: F401
-import app.services.rag.ingestion.loaders.ppt_loader   # noqa: F401
 
 
 class IngestionManager:
