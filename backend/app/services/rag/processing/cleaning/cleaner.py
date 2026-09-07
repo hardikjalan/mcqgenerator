@@ -16,12 +16,17 @@ from __future__ import annotations
 
 from llama_index.core.schema import Document
 
+from collections.abc import Callable, Sequence
+
 from app.services.rag.processing.cleaning.rules import (
     normalize_line_endings,
     normalize_unicode,
     remove_control_characters,
     normalize_whitespace,
+    repair_line_wraps,
 )
+
+Rule = Callable[[str], str]
 
 
 class TextCleaner:
@@ -39,9 +44,20 @@ class TextCleaner:
         normalize_whitespace,
     )
 
+    def __init__(self, extra_rules: Sequence[Rule] = ()) -> None:
+        """
+        Parameters
+        ----------
+        extra_rules:
+            Rules appended after the standard pipeline, for formats that need
+            repair the others do not. They run last so they see normalised
+            line endings and whitespace rather than raw reader output.
+        """
+        self._rules = (*self._PIPELINE, *extra_rules)
+
     def clean(self, text: str) -> str:
-        """Run the full cleaning pipeline on *text* and return the result."""
-        for rule in self._PIPELINE:
+        """Run the cleaning pipeline on *text* and return the result."""
+        for rule in self._rules:
             text = rule(text)
         return text.strip()
 
@@ -76,3 +92,13 @@ class DocumentCleaner:
         centralised in ``BaseLoader.clean_and_validate()``.
         """
         return [self.clean_document(doc) for doc in docs]
+
+
+def layout_aware_cleaner() -> DocumentCleaner:
+    """A cleaner for fixed-layout sources such as PDF.
+
+    Adds line-wrap repair, which must not be applied to slides or Word
+    documents — there a newline separates a bullet or a paragraph and carries
+    meaning, whereas in a PDF it only records where the line happened to end.
+    """
+    return DocumentCleaner(TextCleaner(extra_rules=(repair_line_wraps,)))

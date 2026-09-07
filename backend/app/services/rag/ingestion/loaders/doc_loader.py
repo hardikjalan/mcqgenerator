@@ -3,18 +3,26 @@ doc_loader.py
 =============
 Loader for legacy Word documents (.doc — OLE2 binary format).
 
-``python-docx`` only supports the modern XML-based ``.docx`` format.
-This loader attempts to extract text from binary ``.doc`` files using
-the following fallback strategies:
+``python-docx`` only supports the modern XML-based ``.docx`` format, so binary
+``.doc`` files are read through three strategies in descending order of
+fidelity:
 
-1. COM Automation (win32com) — A reliable, self-contained Python solution 
-   (requires Microsoft Word to be installed on Windows).
-2. Antiword — A robust system-level extractor fallback.
+1. **COM automation (win32com)** — drives a hidden Word instance. Exact, but
+   needs Microsoft Word installed, so it is Windows-and-desktop only.
+2. **antiword** — a system binary. Good output where it is installed.
+3. **OLE2 salvage** — pure Python, no binaries, works everywhere. Lower
+   fidelity, but it is the reason this format works in deployment at all:
+   Railway and Render have neither Word nor antiword, so before this fallback
+   existed every .doc upload succeeded locally and failed in production.
+
+Which one ran is recorded in ``custom_metadata["extraction_method"]``, so a
+support question about odd output can be answered without guessing.
 
 Limitations
 -----------
 - Formatting (bold, italic, tables) is lost — only raw text is extracted.
 - Embedded images and OLE objects are skipped.
+- The salvage path does not recover non-Latin scripts (see ``salvage.py``).
 - Password-protected or encrypted files raise ``CorruptedFileError``.
 """
 
@@ -29,6 +37,7 @@ from app.services.rag.schemas import SupportedFormat, StandardDocumentMetadata
 from app.services.rag.ingestion.base import BaseLoader
 from app.services.rag.ingestion.registry import loader_for
 from app.services.rag.ingestion.exceptions import CorruptedFileError
+from app.services.rag.ingestion.salvage import is_substantial, salvage_readable
 
 
 @loader_for(SupportedFormat.DOC)
@@ -77,12 +86,19 @@ class DocLegacyLoader(BaseLoader):
         except Exception as e:
             errors.append(f"antiword failed: {e}")
 
-        # If both methods failed, return a clear error indicating no supported extractor.
+        # 3. Salvage from the OLE2 stream. No external dependency, so this is
+        #    the path that actually runs on a deployed host.
+        try:
+            return self._extract_via_salvage(file_path), "ole2_salvage"
+        except CorruptedFileError:
+            raise
+        except Exception as e:
+            errors.append(f"salvage failed: {e}")
+
         raise CorruptedFileError(
             file_path.name,
             reason=(
-                "No supported .doc extraction method was available or successful. "
-                "Ensure Microsoft Word is installed (if on Windows) or 'antiword' is in your PATH. "
+                "No .doc extraction method succeeded. "
                 f"Diagnostics: {'; '.join(errors)}"
             )
         )
@@ -138,3 +154,57 @@ class DocLegacyLoader(BaseLoader):
             raise RuntimeError("antiword is not installed or not in PATH.") from exc
         except subprocess.CalledProcessError as exc:
             raise RuntimeError(f"antiword returned {exc.returncode}: {exc.stderr.strip()}") from exc
+
+    @staticmethod
+    def _extract_via_salvage(file_path: Path) -> str:
+        """Recover text from the OLE2 ``WordDocument`` stream.
+
+        A .doc stores its text run-length encoded and interleaved with
+        formatting tables, so this recovers the words but not their order-
+        critical structure — headings and body text come back flat. Good
+        enough to generate questions from; not good enough to reproduce the
+        document.
+        """
+        try:
+            import olefile
+        except ImportError as exc:
+            raise CorruptedFileError(
+                file_path.name,
+                reason="olefile is required for .doc support — pip install olefile",
+            ) from exc
+
+        try:
+            ole = olefile.OleFileIO(str(file_path))
+        except Exception as exc:
+            raise CorruptedFileError(
+                file_path.name,
+                reason=f"Not a valid OLE2 file: {exc}",
+            ) from exc
+
+        try:
+            raw = None
+            for stream_path in ole.listdir():
+                if stream_path and stream_path[-1].lower() == "worddocument":
+                    raw = ole.openstream(stream_path).read()
+                    break
+        finally:
+            ole.close()
+
+        if raw is None:
+            raise CorruptedFileError(
+                file_path.name,
+                reason="No 'WordDocument' stream found",
+            )
+
+        text = salvage_readable(raw)
+
+        if not is_substantial(text):
+            raise CorruptedFileError(
+                file_path.name,
+                reason=(
+                    "Only unreadable binary content could be recovered. Open it "
+                    "in Word and save it as .docx, then upload that."
+                ),
+            )
+
+        return text
