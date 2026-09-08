@@ -58,5 +58,10 @@ class SourceResult(BaseModel):
     error: str | None = None
 
 
+from app.services.rag.generation.models import GeneratedQuestion
+
+
 class GenerateResponse(BaseModel):
     sources: list[SourceResult]
+    questions: list[GeneratedQuestion] = []
+

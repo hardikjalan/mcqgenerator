@@ -15,7 +15,7 @@ The endpoints live in routes.py and the request/response shapes in schemas.py.
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,10 +24,26 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.routes import router
 
-# backend/.env — server-side only. Resolved from this file rather than the
-# working directory so it loads the same way however uvicorn is started.
+# Root-level .env — server-side secrets are kept in the project root .env
+# rather than creating or duplicating a .env inside backend/.
 BACKEND_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BACKEND_DIR / ".env")
+REPO_ROOT = BACKEND_DIR.parent
+WORKSPACE_ROOT = REPO_ROOT.parent
+
+# Check candidate locations for the root-level .env:
+root_env_path = None
+for candidate in [REPO_ROOT / ".env", WORKSPACE_ROOT / ".env"]:
+    if candidate.is_file():
+        root_env_path = candidate
+        break
+
+if root_env_path:
+    load_dotenv(root_env_path, override=True)
+else:
+    # Search upwards from current directory or fallback to repo root .env
+    found = find_dotenv(filename=".env", usecwd=True)
+    load_dotenv(found if found else (REPO_ROOT / ".env"), override=True)
+
 
 # A browser refuses a cross-origin response unless the server names the calling
 # origin. The Next.js app runs on :3000 and this API on :8000 — different ports

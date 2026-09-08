@@ -7,7 +7,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { apiUrl } from '@/lib/env'
 import type { UploadedFile } from '@/types/upload'
-import type { QuestionType, QuizConfig } from '@/types/quiz'
+import type { GeneratedQuestion, QuestionType, QuizConfig } from '@/types/quiz'
 import { QUESTION_COUNTS, QUESTION_TYPES } from '@/lib/quiz-config'
 import { validateFile, getFileExt, MAX_CUMULATIVE_SIZE } from '@/lib/file-upload'
 import { AppShell, type NavItem } from '@/components/shared/AppShell'
@@ -17,25 +17,63 @@ import { Button } from '@/components/ui/Button'
 import { Alert } from '@/components/ui/Alert'
 import { Field, FormInput } from '@/components/ui/form-fields'
 import { FileUploadZone } from '@/components/faculty/FileUploadZone'
-
-const NAV: NavItem[] = [
-  { label: 'Create',  href: '/dashboard/faculty', Icon: FilePlus2 },
-  { label: 'Results', Icon: BarChart3 },
-]
+import { ResultsView } from '@/components/faculty/ResultsView'
 
 /** Mirrors SourceResult in backend/app/schemas.py — change both together. */
 type ExtractedSource = { name: string; ok: boolean; chars: number; error: string | null }
 
 export default function FacultyDashboard() {
+  const [activeTab, setActiveTab] = useState<'create' | 'results'>('create')
+  const [generatedQuestions, setGeneratedQuestions] = useState<GeneratedQuestion[]>([])
+  const [lastConfig, setLastConfig] = useState<QuizConfig | null>(null)
+
+  const nav: NavItem[] = [
+    {
+      label: 'Create',
+      Icon: FilePlus2,
+      active: activeTab === 'create',
+      onClick: () => setActiveTab('create'),
+    },
+    {
+      label: 'Results',
+      Icon: BarChart3,
+      active: activeTab === 'results',
+      onClick: () => setActiveTab('results'),
+      count: generatedQuestions.length,
+    },
+  ]
+
   return (
-    <AppShell nav={NAV} roleLabel="Teacher" title="Create a quiz">
-      <QuizBuilder />
+    <AppShell
+      nav={nav}
+      roleLabel="Teacher"
+      title={activeTab === 'create' ? 'Create a quiz' : 'Generated assessment'}
+    >
+      {activeTab === 'create' ? (
+        <QuizBuilder
+          onQuestionsGenerated={(questions, config) => {
+            setGeneratedQuestions(questions)
+            setLastConfig(config)
+            setActiveTab('results')
+          }}
+        />
+      ) : (
+        <ResultsView
+          questions={generatedQuestions}
+          config={lastConfig}
+          onBackToCreate={() => setActiveTab('create')}
+        />
+      )}
     </AppShell>
   )
 }
 
 /** Lives inside AppShell so it can read the user the shell already fetched. */
-function QuizBuilder() {
+function QuizBuilder({
+  onQuestionsGenerated,
+}: {
+  onQuestionsGenerated: (questions: GeneratedQuestion[], config: QuizConfig) => void
+}) {
   const { user } = useUser()
   const userId = user?.id ?? null
 
@@ -204,6 +242,9 @@ function QuizBuilder() {
 
       const data = await res.json()
       setExtractedSources(data.sources ?? [])
+      if (data.questions && Array.isArray(data.questions) && data.questions.length > 0) {
+        onQuestionsGenerated(data.questions, config)
+      }
     } catch (err: unknown) {
       setGenError(
         err instanceof Error ? err.message : 'Couldn’t reach the server. Is the backend running?'

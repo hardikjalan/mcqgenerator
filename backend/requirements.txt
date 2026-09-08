@@ -13,4 +13,6 @@ python-pptx>=1.0.0
 
 # ── RAG Layer 4: Embedding & Storage ─────────────────────────────────────────
 supabase>=2.3.0
+google-genai>=2.22.0
 openai>=1.10.0
+

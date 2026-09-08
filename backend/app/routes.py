@@ -13,9 +13,13 @@ them into ``{"error": "..."}``, so whatever is passed as the detail is shown to
 the user verbatim. Keep it a plain sentence, never an internal message.
 """
 
+import logging
 from fastapi import APIRouter, HTTPException
 
 from app.schemas import GenerateRequest, GenerateResponse, SourceResult
+from app.services.rag.pipeline import run_assessment_pipeline
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -28,7 +32,7 @@ def health() -> dict[str, str]:
 
 @router.post("/generate-assessment", response_model=GenerateResponse)
 def generate_assessment(payload: GenerateRequest) -> GenerateResponse:
-    """Turn uploaded files or pasted text into per-source extraction results."""
+    """Execute the end-to-end RAG pipeline for teacher assessment generation."""
     if payload.sourceType == "text":
         text = (payload.textContent or "").strip()
         if not text:
@@ -40,10 +44,16 @@ def generate_assessment(payload: GenerateRequest) -> GenerateResponse:
     if not payload.files:
         raise HTTPException(400, "No files were provided.")
 
-    # Not built yet. Returning empty or zeroed results here would look like a
-    # successful extraction that found nothing, which is the confusing failure
-    # this is meant to avoid — so say so plainly instead.
-    raise HTTPException(
-        501,
-        "File extraction is not available yet. Paste your text in the meantime.",
-    )
+    try:
+        sources, retrieval_result, questions = run_assessment_pipeline(payload)
+        return GenerateResponse(sources=sources, questions=questions)
+    except RuntimeError as exc:
+        logger.error("Pipeline service error: %s", exc)
+        raise HTTPException(503, str(exc))
+    except ValueError as exc:
+        logger.error("Pipeline validation error: %s", exc)
+        raise HTTPException(422, str(exc))
+    except Exception as exc:
+        logger.error("Unhandled error in assessment pipeline: %s", exc)
+        raise HTTPException(500, f"Assessment pipeline failed: {exc}")
+

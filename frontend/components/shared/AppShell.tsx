@@ -11,8 +11,12 @@ export type NavItem = {
   label: string
   /** Omit for sections that aren't built yet — renders as plain text, never a dead link. */
   href?: string
+  /** Click handler for switching tabs without page reloads. */
+  onClick?: () => void
+  /** Explicit active state for onClick tabs. */
+  active?: boolean
   Icon: LucideIcon
-  /** Count shown on the right, e.g. number of drafts. */
+  /** Count shown on the right, e.g. number of drafts or questions. */
   count?: number
 }
 
@@ -73,21 +77,56 @@ function ShellFrame({ nav, roleLabel, title, actions, children }: ShellProps) {
       </div>
 
       <nav className="flex-1 px-2.5 py-3 flex flex-col gap-0.5 overflow-y-auto">
-        {nav.map(({ label, href, Icon, count }) =>
-          href ? (
-            <a
-              key={label}
-              href={href}
-              aria-current="page"
-              className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-base font-semibold bg-accent-soft text-accent transition-colors"
-            >
-              <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span className="flex-1 truncate">{label}</span>
-              {count !== undefined && <span className="text-xs tabular text-text-3">{count}</span>}
-            </a>
-          ) : (
-            // Not a link and not a button — it does nothing, so it must not be
-            // focusable or announced as clickable.
+        {nav.map(({ label, href, onClick, active, Icon, count }) => {
+          if (onClick) {
+            return (
+              <button
+                key={label}
+                type="button"
+                onClick={() => {
+                  onClick()
+                  setMenuOpen(false)
+                }}
+                aria-current={active ? 'page' : undefined}
+                className={[
+                  'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-base font-semibold text-left transition-colors cursor-pointer',
+                  active
+                    ? 'bg-accent-soft text-accent'
+                    : 'text-text-2 hover:bg-surface-2 hover:text-text',
+                ].join(' ')}
+              >
+                <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span className="flex-1 truncate">{label}</span>
+                {count !== undefined && count > 0 && (
+                  <span
+                    className={[
+                      'text-xs tabular px-1.5 py-0.5 rounded-full font-bold',
+                      active ? 'bg-accent text-surface' : 'bg-surface-2 text-text-3',
+                    ].join(' ')}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            )
+          }
+
+          if (href) {
+            return (
+              <a
+                key={label}
+                href={href}
+                aria-current="page"
+                className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-base font-semibold bg-accent-soft text-accent transition-colors"
+              >
+                <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span className="flex-1 truncate">{label}</span>
+                {count !== undefined && <span className="text-xs tabular text-text-3">{count}</span>}
+              </a>
+            )
+          }
+
+          return (
             <span
               key={label}
               className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-base text-text-3"
@@ -99,7 +138,7 @@ function ShellFrame({ nav, roleLabel, title, actions, children }: ShellProps) {
               </span>
             </span>
           )
-        )}
+        })}
       </nav>
 
       <div className="p-2.5 border-t border-border-subtle shrink-0 flex flex-col gap-2">

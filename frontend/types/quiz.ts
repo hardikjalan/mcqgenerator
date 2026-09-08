@@ -21,3 +21,12 @@ export type QuizConfig = {
   customCount: string
   timeLimit: string
 }
+
+export type GeneratedQuestion = {
+  id: number
+  question: string
+  options: string[]
+  correct_answer: string | string[]
+  question_type?: string
+}
+

@@ -13,8 +13,8 @@ from pydantic import BaseModel, Field
 class StorageConfig(BaseModel):
     """Configuration for embedding and Supabase storage."""
 
-    # Embedding settings
-    embedding_model: str = "text-embedding-3-small"
+    # Embedding settings (Google Gemini gemini-embedding-001 with 1536 output dimensionality)
+    embedding_model: str = "gemini-embedding-001"
     embedding_dimensions: int = 1536
     embedding_batch_size: int = 100
 
