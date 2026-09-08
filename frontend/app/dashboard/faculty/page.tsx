@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import {
-  Wand2, FilePlus2, Library, BarChart3, Users, FileCheck2, CheckCircle2, AlertCircle,
+  Wand2, FilePlus2, BarChart3, CheckCircle2, AlertCircle,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { apiUrl } from '@/lib/env'
@@ -19,11 +19,8 @@ import { Field, FormInput } from '@/components/ui/form-fields'
 import { FileUploadZone } from '@/components/faculty/FileUploadZone'
 
 const NAV: NavItem[] = [
-  { label: 'Create',        href: '/dashboard/faculty', Icon: FilePlus2 },
-  { label: 'My quizzes',    Icon: Library },
-  { label: 'Question bank', Icon: FileCheck2 },
-  { label: 'Cohorts',       Icon: Users },
-  { label: 'Results',       Icon: BarChart3 },
+  { label: 'Create',  href: '/dashboard/faculty', Icon: FilePlus2 },
+  { label: 'Results', Icon: BarChart3 },
 ]
 
 /** Mirrors SourceResult in backend/app/schemas.py — change both together. */
