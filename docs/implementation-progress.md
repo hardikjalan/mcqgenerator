@@ -39,11 +39,17 @@ requests, and label mastery as a Bayesian estimate rather than a measured fact.
 - All isolated test accounts and test data were removed after verification.
 - CI configuration was added; its hosted GitHub run has not been observed here.
 
-Manual browser acceptance testing remains: the computer-use service could not
-validate the active browser URL in this session. The implementation and API
-checks above passed, but visual rendering and keyboard interaction need a final
-browser walkthrough. Deployment to a public hosting environment was not part of
-this local verification.
+## Follow-up verification on 27 October 2026
+
+Browser tests now cover teacher and student onboarding, generation, draft
+editing/publication, timed/resumable attempts, all answer formats, feedback,
+analytics, exports, administration, keyboard navigation and phone layouts.
+Live ingestion succeeded for PDF, DOCX, PPTX, DOC, PPT and PNG fixtures. The
+follow-up suite contains 43 backend and 17 frontend regression tests.
+
+See the [full QA report](qa-report.md) for the fixes, screenshots and remaining
+personal-Google-account approval and deployed-site URL requirements. A hosted
+GitHub Actions run was also observed passing for the preceding onboarding commit.
 
 The measured cleaning benchmark and educational effectiveness claims in the
 presentation require separate experiments; they are not inferred from these tests.

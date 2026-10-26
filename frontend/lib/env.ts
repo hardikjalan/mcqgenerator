@@ -15,6 +15,7 @@
  */
 
 function required(name: string, value: string | undefined): string {
+  value = value?.trim()
   if (!value) {
     throw new Error(
       `Missing ${name}.\n` +
@@ -39,7 +40,7 @@ export const SUPABASE_URL = normaliseSupabaseUrl(
 // created under the newer naming works without editing code.
 export const SUPABASE_ANON_KEY = required(
   'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim()
 )
 
 /**

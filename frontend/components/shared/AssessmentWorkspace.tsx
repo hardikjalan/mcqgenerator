@@ -24,7 +24,7 @@ export function AssessmentWorkspace() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const load = useCallback(() => {
-    apiRequest<AssessmentSummary[]>('/assessments').then(setItems).catch(e => setError(errorMessage(e))).finally(() => setLoading(false))
+    apiRequest<AssessmentSummary[]>('/assessments').then(value => { setItems(value); setError('') }).catch(e => setError(errorMessage(e))).finally(() => setLoading(false))
   }, [])
   useEffect(() => { load() }, [load])
   if (selected) return <AssessmentDetail key={selected} id={selected} onBack={() => { setSelected(null); load() }} />
@@ -61,7 +61,7 @@ export function AssessmentDetail({ id, onBack }: { id: string; onBack: () => voi
     setBusy(true); setError(''); setNotice('')
     try {
       let value: Assessment
-      if (kind === 'save') value = await apiRequest(`/assessments/${id}`, { method: 'PATCH', body: JSON.stringify({ version: quiz.version, title, questions }) })
+      if (kind === 'save') value = await apiRequest(`/assessments/${id}`, { method: 'PATCH', body: JSON.stringify({ version: quiz.version, title, questions }) }, 300000)
       else if (kind === 'publish') value = await apiRequest(`/assessments/${id}/publish`, { method: 'POST', body: JSON.stringify({ version: quiz.version, closes_at: closing ? new Date(closing).toISOString() : null }) })
       else value = await apiRequest(`/assessments/${id}/close`, { method: 'POST' })
       apply(value); setNotice(kind === 'save' ? 'Changes saved and checked against the sources.' : kind === 'publish' ? 'Published. Share the join code with your students.' : 'Closed to new attempts.')

@@ -133,10 +133,10 @@ review, scoring, adaptive selection, mastery, expiry, concurrency and access che
 The opt-in smoke script exercises real Supabase authentication/storage and API
 lifecycle operations; --live-generation also invokes real embeddings and Gemini.
 
-TypeScript, ESLint and a production Next.js build are required checks. Browser
-interaction testing was unavailable in this implementation session because the
-computer-use service could not validate the active URL; API and build checks do
-not substitute for final manual browser acceptance testing.
+TypeScript, ESLint and a production Next.js build are required checks. The
+follow-up [end-to-end test report](qa-report.md) records browser, mobile, live
+service and regression coverage, corrected bugs and the remaining OAuth/deployment
+access limits.
 
 List endpoints currently cap results at 100–5,000 rows depending on the resource.
 Large institutions need pagination, background ingestion/jobs, rate limits and

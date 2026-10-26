@@ -9,7 +9,7 @@ import { apiRequest } from '@/lib/api'
 import type { UploadedFile } from '@/types/upload'
 import type { GeneratedQuestion, QuestionType, QuizConfig } from '@/types/quiz'
 import { QUESTION_COUNTS, QUESTION_TYPES, BLOOM_LEVELS } from '@/lib/quiz-config'
-import { validateFile, getFileExt, MAX_CUMULATIVE_SIZE } from '@/lib/file-upload'
+import { validateFileAddition, getFileExt } from '@/lib/file-upload'
 import { AppShell, type NavItem } from '@/components/shared/AppShell'
 import { useUser } from '@/components/shared/UserProvider'
 import { Card, CardHeader } from '@/components/ui/Card'
@@ -97,9 +97,10 @@ function QuizBuilder({
       .reduce((sum, f) => sum + f.file.size, 0)
 
     let runningTotal = alreadyUsed
+    let runningCount = uploadedFiles.filter(file => file.status !== 'error').length
     const entries: UploadedFile[] = Array.from(raw).map(file => {
       // 1. Per-file validation (type + individual size limit)
-      const perFileErr = validateFile(file)
+      const perFileErr = validateFileAddition(file, runningTotal, runningCount)
       if (perFileErr) {
         return {
           id: `${Date.now()}_${Math.random()}`,
@@ -112,18 +113,7 @@ function QuizBuilder({
 
       // 2. Cumulative size guard
       runningTotal += file.size
-      if (runningTotal > MAX_CUMULATIVE_SIZE) {
-        const limitMB = (MAX_CUMULATIVE_SIZE / (1024 * 1024)).toFixed(0)
-        const totalMB = (runningTotal / (1024 * 1024)).toFixed(1)
-        runningTotal -= file.size
-        return {
-          id: `${Date.now()}_${Math.random()}`,
-          file,
-          status: 'error' as const,
-          progress: 0,
-          errorMsg: `That takes you to ${totalMB} MB — the limit is ${limitMB} MB in total`,
-        }
-      }
+      runningCount += 1
 
       return { id: `${Date.now()}_${Math.random()}`, file, status: 'uploading' as const, progress: 0 }
     })
@@ -160,12 +150,13 @@ function QuizBuilder({
     sourceType === 'upload' && uploadedFiles.some(f => f.status === 'uploading') ? 'Wait for the uploads to finish'
     : sourceType === 'upload' && readyFiles.length === 0 ? 'Add at least one file'
     : sourceType === 'text' && textContent.trim().length < 30 ? 'Paste at least 30 characters of material'
+    : sourceType === 'text' && textContent.length > 100000 ? 'Use at most 100,000 characters of material'
     : !config.subjectName.trim() ? 'Enter the subject'
     : !config.gradeLevel.trim() ? 'Say who it’s for'
     : !config.topicsCovered.trim() ? 'List the topics'
     : !config.learningObjective.trim() ? 'Describe what it should test'
     : config.questionCount < 1 || config.questionCount > 30 ? 'Choose between 1 and 30 questions'
-    : Number(config.timeLimit) > 1440 ? 'Use a time limit of at most 1,440 minutes'
+    : config.timeLimit && (Number(config.timeLimit) < 1 || Number(config.timeLimit) > 1440 || config.timeLimit.length > 4) ? 'Use 1 to 1,440 minutes, or leave the time limit empty'
     : !config.bloomLevels?.length ? 'Select at least one cognitive level'
     : null
 
@@ -214,7 +205,7 @@ function QuizBuilder({
             adaptive: config.adaptive,
           },
         }),
-      })
+      }, 300000)
 
       setExtractedSources(data.sources ?? [])
       if (data.questions && Array.isArray(data.questions) && data.questions.length > 0) {
@@ -367,7 +358,7 @@ function QuizBuilder({
                     value={config.customCount}
                     onChange={e => {
                       const v = e.target.value
-                      setConf({ customCount: v, questionCount: v ? parseInt(v) || 10 : 10 })
+                      setConf({ customCount: v, questionCount: v ? parseInt(v) : 10 })
                     }}
                     className="w-20 bg-surface border border-border-strong rounded-md px-2.5 py-2 text-base text-text placeholder:text-text-3 tabular hover:border-text-3 focus:border-accent focus:outline-none transition-colors"
                   />

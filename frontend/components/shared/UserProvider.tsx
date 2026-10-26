@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { withTimeout } from '@/lib/async'
 
 export type SessionUser = {
   id: string
@@ -10,7 +11,7 @@ export type SessionUser = {
   avatar: string
 }
 
-type UserState = { user: SessionUser | null; loading: boolean }
+type UserState = { user: SessionUser | null; loading: boolean; error?: string }
 
 const UserContext = createContext<UserState>({ user: null, loading: true })
 
@@ -38,7 +39,8 @@ export function UserProvider({
   useEffect(() => {
     let cancelled = false
 
-    createClient().auth.getUser().then(({ data }) => {
+    withTimeout(() => createClient().auth.getUser()).then(({ data, error }) => {
+      if (error) throw error
       if (cancelled) return
       const u = data.user
       setState({
@@ -52,6 +54,9 @@ export function UserProvider({
             }
           : null,
       })
+    }).catch(error => {
+      console.error('[account] User lookup failed:', error)
+      if (!cancelled) setState({ user: null, loading: false, error: 'Could not load your account. Refresh the page or sign in again.' })
     })
 
     return () => { cancelled = true }

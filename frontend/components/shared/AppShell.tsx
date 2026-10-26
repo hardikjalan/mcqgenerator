@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/ui/Logo'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { UserProvider, useUser } from '@/components/shared/UserProvider'
+import { withTimeout } from '@/lib/async'
+import { Alert } from '@/components/ui/Alert'
 
 export type NavItem = {
   label: string
@@ -48,7 +50,9 @@ export function AppShell(props: ShellProps) {
 }
 
 function ShellFrame({ nav, roleLabel, title, actions, children }: ShellProps) {
-  const { user, loading } = useUser()
+  const { user, loading, error: accountError } = useUser()
+  const [signOutError, setSignOutError] = useState('')
+  const [signingOut, setSigningOut] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const drawerRef = useRef<HTMLDialogElement>(null)
 
@@ -62,8 +66,16 @@ function ShellFrame({ nav, roleLabel, title, actions, children }: ShellProps) {
   }, [menuOpen])
 
   const handleSignOut = async () => {
-    await createClient().auth.signOut()
-    window.location.href = '/'
+    if (signingOut) return
+    setSigningOut(true); setSignOutError('')
+    try {
+      const { error } = await withTimeout(() => createClient().auth.signOut())
+      if (error) throw error
+      window.location.replace('/')
+    } catch (error) {
+      console.error('[account] Sign-out failed:', error)
+      setSignOutError('Could not sign out. Check your connection and try again.')
+    } finally { setSigningOut(false) }
   }
 
   const railContent = (
@@ -160,10 +172,11 @@ function ShellFrame({ nav, roleLabel, title, actions, children }: ShellProps) {
         </div>
         <button
           onClick={handleSignOut}
+          disabled={signingOut}
           className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-base text-text-2 hover:bg-surface-2 hover:text-danger transition-colors cursor-pointer"
         >
           <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
-          Sign out
+          {signingOut ? 'Signing out…' : 'Sign out'}
         </button>
       </div>
     </>
@@ -207,7 +220,10 @@ function ShellFrame({ nav, roleLabel, title, actions, children }: ShellProps) {
           </div>
         </header>
 
-        <main className="flex-1 px-4 sm:px-6 py-6">{children}</main>
+        <main className="flex-1 px-4 sm:px-6 py-6">
+          {(accountError || signOutError) && <Alert className="mb-5">{signOutError || accountError}</Alert>}
+          {children}
+        </main>
       </div>
     </div>
   )

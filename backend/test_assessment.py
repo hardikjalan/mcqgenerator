@@ -1,4 +1,5 @@
 import json
+import httpx
 import unittest
 from datetime import timedelta
 from types import SimpleNamespace
@@ -11,6 +12,7 @@ from app.main import app
 from app.schemas import QuizConfig
 from app.services import assessment as service
 from app.services.rag.pipeline import validate_download_url
+from supabase_auth.errors import AuthApiError
 
 
 def question(index=1, difficulty=2, topic="Cells", kind="single"):
@@ -107,6 +109,27 @@ class AssessmentDomainTests(unittest.TestCase):
 
 
 class AuthorizationTests(unittest.TestCase):
+    def test_auth_transport_outage_is_not_reported_as_an_expired_session(self):
+        database = MagicMock()
+        database.auth.get_user.side_effect = httpx.ConnectError("Authentication service is unavailable")
+        with patch("app.auth.get_db", return_value=database), self.assertRaises(HTTPException) as error:
+            current_actor(SimpleNamespace(credentials="token"))
+        self.assertEqual(error.exception.status_code, 503)
+
+    def test_auth_provider_server_errors_are_retryable(self):
+        database = MagicMock()
+        database.auth.get_user.side_effect = AuthApiError("Upstream failure", 503, None)
+        with patch("app.auth.get_db", return_value=database), self.assertRaises(HTTPException) as error:
+            current_actor(SimpleNamespace(credentials="token"))
+        self.assertEqual(error.exception.status_code, 503)
+
+    def test_invalid_tokens_still_return_unauthorized(self):
+        database = MagicMock()
+        database.auth.get_user.side_effect = AuthApiError("Invalid JWT", 401, "bad_jwt")
+        with patch("app.auth.get_db", return_value=database), self.assertRaises(HTTPException) as error:
+            current_actor(SimpleNamespace(credentials="token"))
+        self.assertEqual(error.exception.status_code, 401)
+
     def test_protected_endpoints_require_authentication(self):
         client = TestClient(app)
         for path in ("/assessments", "/student/assessments", "/admin/people"):

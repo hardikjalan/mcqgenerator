@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiRequest, errorMessage } from '@/lib/api'
+import { remainingSeconds, serverClockOffset } from '@/lib/assessment-clock'
 import type { AssessmentSummary, Attempt, ProgressEntry } from '@/types/assessment'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -13,6 +14,7 @@ export function StudentWorkspace({ mode }: { mode: 'quizzes' | 'completed' | 'pr
   const [quizzes, setQuizzes] = useState<AssessmentSummary[]>([])
   const [progress, setProgress] = useState<ProgressEntry[]>([])
   const [attempt, setAttempt] = useState<Attempt | null>(null)
+  const [serverOffset, setServerOffset] = useState(0)
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -32,13 +34,17 @@ export function StudentWorkspace({ mode }: { mode: 'quizzes' | 'completed' | 'pr
     try { await apiRequest('/student/join', { method: 'POST', body: JSON.stringify({ code: code.trim() }) }); setCode(''); setRevision(n => n + 1) }
     catch (e) { setError(errorMessage(e)) } finally { setBusy(false) }
   }
+  const changed = useCallback((value: Attempt) => {
+    setServerOffset(serverClockOffset(value.server_time, Date.now()))
+    setAttempt(value)
+    if (value.status === 'submitted') setRevision(n => n + 1)
+  }, [])
   const start = async (id: string) => {
     setBusy(true); setError('')
-    try { setAttempt(await apiRequest<Attempt>(`/student/assessments/${id}/start`, { method: 'POST' })) }
+    try { changed(await apiRequest<Attempt>(`/student/assessments/${id}/start`, { method: 'POST' })) }
     catch (e) { setError(errorMessage(e)) } finally { setBusy(false) }
   }
-  const changed = useCallback((value: Attempt) => { setAttempt(value); if (value.status === 'submitted') setRevision(n => n + 1) }, [])
-  if (attempt && mode === 'quizzes') return <QuizPlayer key={`${attempt.id}:${attempt.question?.id ?? 'complete'}`} attempt={attempt} onChange={changed} onBack={() => { setAttempt(null); setRevision(n => n + 1) }} />
+  if (attempt && mode === 'quizzes') return <QuizPlayer key={`${attempt.id}:${attempt.question?.id ?? 'complete'}`} attempt={attempt} serverOffset={serverOffset} onChange={changed} onBack={() => { setAttempt(null); setRevision(n => n + 1) }} />
   return <div className="max-w-4xl mx-auto flex flex-col gap-5">
     {error && <Alert>{error}</Alert>}
     {!loaded && <p role="status" className="text-text-3">Loading your assessments…</p>}
@@ -67,16 +73,15 @@ export function StudentWorkspace({ mode }: { mode: 'quizzes' | 'completed' | 'pr
   </div>
 }
 
-function QuizPlayer({ attempt, onChange, onBack }: { attempt: Attempt; onChange: (value: Attempt) => void; onBack: () => void }) {
+function QuizPlayer({ attempt, serverOffset, onChange, onBack }: { attempt: Attempt; serverOffset: number; onChange: (value: Attempt) => void; onBack: () => void }) {
   const [choices, setChoices] = useState<number[]>(attempt.draft_answers ?? [])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
   const [clock, setClock] = useState(() => Date.now())
-  const [offset] = useState(() => new Date(attempt.server_time).getTime() - Date.now())
   const dialog = useRef<HTMLDialogElement>(null)
   const timedOut = useRef(false)
-  const remaining = attempt.expires_at ? Math.max(0, Math.ceil((new Date(attempt.expires_at).getTime() - clock - offset) / 1000)) : null
+  const remaining = remainingSeconds(attempt.expires_at, clock, serverOffset)
   const finish = useCallback(async () => {
     setBusy(true); setError('')
     try { onChange(await apiRequest<Attempt>(`/student/attempts/${attempt.id}/finish`, { method: 'POST', body: JSON.stringify({ version: attempt.version }) })) }

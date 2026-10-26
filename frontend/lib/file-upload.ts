@@ -10,6 +10,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024  // 5 MB
 // Cumulative limit across ALL files in a single generate request.
 // Must match MAX_CUMULATIVE_SIZE_MB in backend/main.py.
 export const MAX_CUMULATIVE_SIZE = 5 * 1024 * 1024  // 5 MB
+export const MAX_FILE_COUNT = 10
 
 const ALLOWED_MIME_TYPES = [
   'application/pdf',
@@ -32,10 +33,19 @@ export function getFileExt(filename: string) {
 }
 
 export function validateFile(file: File): string | null {
+  if (file.size === 0) return 'This file is empty. Choose a file containing course material.'
   if (file.size > MAX_FILE_SIZE) return `Exceeds 5 MB per-file limit (${formatBytes(file.size)})`
   const ok =
     ALLOWED_MIME_TYPES.includes(file.type) ||
     ALLOWED_EXTENSIONS.some(ext => file.name.toLowerCase().endsWith(ext))
   if (!ok) return 'Unsupported type — use PDF, DOC/DOCX, PPT/PPTX, PNG or JPG'
+  return null
+}
+
+export function validateFileAddition(file: File, usedBytes: number, usedCount: number): string | null {
+  const error = validateFile(file)
+  if (error) return error
+  if (usedCount >= MAX_FILE_COUNT) return `Use up to ${MAX_FILE_COUNT} files in one assessment.`
+  if (usedBytes + file.size > MAX_CUMULATIVE_SIZE) return 'These files exceed the combined 5 MB limit.'
   return null
 }

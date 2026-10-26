@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { FileText, PencilLine, BarChart3, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { withTimeout } from '@/lib/async'
 import { Wordmark } from '@/components/ui/Logo'
 import { Button } from '@/components/ui/Button'
 import { Alert } from '@/components/ui/Alert'
@@ -52,37 +53,42 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [modal, setModal] = useState<ModalKey | null>(null)
+  const dialogRef = useRef<HTMLDialogElement>(null)
 
   const closeModal = useCallback(() => setModal(null), [])
 
   // Escape closes the dialog, and the page behind it stops scrolling while
   // it's open. Neither worked before.
   useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    if (modal && !dialog.open) dialog.showModal()
+    if (!modal && dialog.open) dialog.close()
     if (!modal) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeModal() }
-    document.addEventListener('keydown', onKey)
+    const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = ''
+      document.body.style.overflow = previousOverflow
     }
-  }, [modal, closeModal])
+  }, [modal])
 
   const handleGoogleLogin = async () => {
     try {
       setIsLoading(true)
       setError(null)
       const supabase = createClient()
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { error } = await withTimeout(() => supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: { prompt: 'select_account' },
         },
-      })
+      }))
       if (error) throw error
     } catch (err: unknown) {
+      console.error('[auth] Google sign-in failed:', err)
       setError(err instanceof Error ? err.message : 'Sign-in didn’t complete. Please try again.')
+    } finally {
       setIsLoading(false)
     }
   }
@@ -184,17 +190,15 @@ export default function LoginPage() {
       </footer>
 
       {/* ── Dialog ───────────────────────────────────────────────────────── */}
-      {modal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-text/40 backdrop-blur-sm"
-          onClick={closeModal}
+        <dialog
+          ref={dialogRef}
+          onClose={closeModal}
+          onClick={event => { if (event.target === dialogRef.current) closeModal() }}
+          aria-labelledby="dialog-title"
+          className="m-auto w-full max-w-xl p-0 max-h-screen bg-surface text-text border border-border-subtle rounded-xl shadow-lg backdrop:bg-text/40 backdrop:backdrop-blur-sm"
         >
           <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="dialog-title"
-            onClick={e => e.stopPropagation()}
-            className="w-full max-w-xl max-h-[80vh] flex flex-col bg-surface border border-border-subtle rounded-xl shadow-lg overflow-hidden"
+            className="flex flex-col max-h-screen overflow-hidden"
           >
             <div className="flex items-center justify-between gap-4 px-5 py-4 border-b border-border-subtle">
               <h3 id="dialog-title" className="text-lg font-bold tracking-tight text-text">
@@ -215,7 +219,7 @@ export default function LoginPage() {
               {modal === 'terms' && (
                 <>
                   <p><strong className="text-text">Using Cognira.</strong> Cognira is provided for teaching and study. By signing in you agree to use it for that purpose.</p>
-                  <p><strong className="text-text">Who can sign in.</strong> Access is limited to verified students, teaching staff and administrators of the institution.</p>
+                  <p><strong className="text-text">Who can sign in.</strong> Sign in with Google and choose a student or teacher account. Administrator access is assigned separately.</p>
                   <p><strong className="text-text">Your account.</strong> Keep your sign-in details to yourself. Anything done from your account is treated as done by you. Tell us straight away if you think someone else has access.</p>
                   <p><strong className="text-text">Material you upload.</strong> Course material you upload stays yours. You give us permission to read and index it for the sole purpose of generating your questions.</p>
                   <p><strong className="text-text">Limits.</strong> Cognira drafts questions automatically and can get things wrong — that is why you review them before publishing. We can’t be held responsible for questions published without review.</p>
@@ -225,17 +229,14 @@ export default function LoginPage() {
                 <>
                   <p><strong className="text-text">What we collect.</strong> Your name, email address and profile picture from Google when you sign in, plus the material you upload and your activity in the app.</p>
                   <p><strong className="text-text">What we use it for.</strong> Confirming who you are, setting you up as a student or teacher, generating your questions, and showing your progress.</p>
-                  <p><strong className="text-text">Who sees it.</strong> Nobody outside the platform. We don’t sell your data or share it with advertisers. It’s stored in an access-controlled database.</p>
+                  <p><strong className="text-text">How it is processed.</strong> Supabase provides authentication, storage and the database. Uploaded material and relevant source passages are sent to Google Gemini for text extraction and question generation. Teachers can see their students’ quiz results, and administrators manage platform access. We don’t sell your data or share it with advertisers.</p>
                   <p><strong className="text-text">Deleting it.</strong> Ask support and we’ll remove your account and any material you’ve uploaded.</p>
                 </>
               )}
               {modal === 'support' && (
                 <>
                   <p>For sign-in trouble, a wrong role on your account, or anything that looks broken, get in touch and we’ll sort it out.</p>
-                  <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-surface-2 p-4 text-sm">
-                    <p><strong className="text-text">Email</strong> — <a href="mailto:support@cognira.app" className="text-accent hover:underline">support@cognira.app</a></p>
-                    <p><strong className="text-text">Hours</strong> — Monday to Friday, 9:00 to 17:00</p>
-                  </div>
+                  <p>Contact the instructor or administrator who shared Cognira with you. Include the page you were using and the error message, if one appeared.</p>
                 </>
               )}
             </div>
@@ -244,8 +245,7 @@ export default function LoginPage() {
               <Button onClick={closeModal}>Close</Button>
             </div>
           </div>
-        </div>
-      )}
+        </dialog>
     </div>
   )
 }

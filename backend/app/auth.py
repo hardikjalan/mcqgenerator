@@ -1,5 +1,7 @@
 """Validate bearer tokens with Supabase Auth; roles come from the database."""
 from dataclasses import dataclass
+import httpx
+from supabase_auth.errors import AuthApiError, AuthRetryableError
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.db import get_db
@@ -20,6 +22,12 @@ def current_actor(credentials: HTTPAuthorizationCredentials | None = Depends(bea
     try:
         response = get_db().auth.get_user(credentials.credentials)
         user = response.user
+    except (httpx.RequestError, AuthRetryableError):
+        raise HTTPException(503, "Sign-in verification is temporarily unavailable. Please try again shortly.") from None
+    except AuthApiError as error:
+        if error.status >= 500 or error.status == 429:
+            raise HTTPException(503, "Sign-in verification is temporarily unavailable. Please try again shortly.") from None
+        raise HTTPException(401, "Your session expired. Please sign in again.") from None
     except Exception:
         raise HTTPException(401, "Your session expired. Please sign in again.") from None
     if not user:

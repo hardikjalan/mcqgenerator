@@ -11,6 +11,9 @@ See [the implementation guide](docs/project.md) for architecture, limitations an
 verification, and [the completed checklist](docs/implementation-progress.md) for
 the six modules from the review presentation.
 
+The latest [end-to-end QA report](docs/qa-report.md) records tested flows, fixes,
+screenshots and the remaining verification limits.
+
 ## Local setup
 
 Use Python 3.12 and Node.js 20.9 or newer.

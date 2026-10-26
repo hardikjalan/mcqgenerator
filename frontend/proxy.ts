@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/env'
+import { boundedFetch, withTimeout } from '@/lib/async'
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -9,6 +10,7 @@ export async function proxy(request: NextRequest) {
     SUPABASE_URL,
     SUPABASE_ANON_KEY,
     {
+      global: { fetch: boundedFetch },
       cookies: {
         getAll() { return request.cookies.getAll() },
         setAll(cookiesToSet) {
@@ -23,7 +25,10 @@ export async function proxy(request: NextRequest) {
   )
 
   // Refresh session (required by @supabase/ssr to keep cookies alive)
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user } } = await withTimeout(() => supabase.auth.getUser()).catch(error => {
+    console.error('[proxy] Session lookup failed:', error instanceof Error ? error.message : error)
+    return { data: { user: null } }
+  })
   const pathname = request.nextUrl.pathname
   const redirect = (path: string) => {
     const response = NextResponse.redirect(new URL(path, request.url))
@@ -49,6 +54,7 @@ export async function proxy(request: NextRequest) {
 
   if (profileError) {
     console.error('[proxy] Profile role query failed:', profileError.message, profileError.code)
+    return redirect('/?error=db_error')
   }
 
   const role = profile?.role

@@ -113,7 +113,7 @@ export function FileUploadZone({
           {isDragging ? 'Drop them here' : 'Drop files here, or click to browse'}
         </span>
         <span className="text-xs text-text-3">
-          PDF · DOC/DOCX · PPT/PPTX · PNG · JPG — 5 MB in total
+          PDF · DOC/DOCX · PPT/PPTX · PNG · JPG — up to 10 files, 5 MB in total
         </span>
       </button>
 
