@@ -1,7 +1,8 @@
 // Assessment option lists shown in the builder UI.
 // Types live in @/types/quiz
 
-import type { QuestionType } from '@/types/quiz'
+import type { QuestionType, BloomLevel } from '@/types/quiz'
+export const BLOOM_LEVELS: BloomLevel[] = ['Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate', 'Create']
 
 export const QUESTION_COUNTS = [5, 10, 15, 20]
 

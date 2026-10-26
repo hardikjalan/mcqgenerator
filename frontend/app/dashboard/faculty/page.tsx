@@ -5,10 +5,10 @@ import {
   Wand2, FilePlus2, BarChart3, CheckCircle2, AlertCircle,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { apiUrl } from '@/lib/env'
+import { apiRequest } from '@/lib/api'
 import type { UploadedFile } from '@/types/upload'
 import type { GeneratedQuestion, QuestionType, QuizConfig } from '@/types/quiz'
-import { QUESTION_COUNTS, QUESTION_TYPES } from '@/lib/quiz-config'
+import { QUESTION_COUNTS, QUESTION_TYPES, BLOOM_LEVELS } from '@/lib/quiz-config'
 import { validateFile, getFileExt, MAX_CUMULATIVE_SIZE } from '@/lib/file-upload'
 import { AppShell, type NavItem } from '@/components/shared/AppShell'
 import { useUser } from '@/components/shared/UserProvider'
@@ -18,67 +18,39 @@ import { Alert } from '@/components/ui/Alert'
 import { Field, FormInput } from '@/components/ui/form-fields'
 import { FileUploadZone } from '@/components/faculty/FileUploadZone'
 import { ResultsView } from '@/components/faculty/ResultsView'
+import { AssessmentWorkspace } from '@/components/shared/AssessmentWorkspace'
 
 /** Mirrors SourceResult in backend/app/schemas.py — change both together. */
 type ExtractedSource = { name: string; ok: boolean; chars: number; error: string | null }
 
 export default function FacultyDashboard() {
-  const [activeTab, setActiveTab] = useState<'create' | 'results'>('create')
-  const [generatedQuestions, setGeneratedQuestions] = useState<GeneratedQuestion[]>([])
-  const [lastConfig, setLastConfig] = useState<QuizConfig | null>(null)
-
+  const [activeTab, setActiveTab] = useState<'create' | 'results' | 'library'>('create')
+  const [assessmentId, setAssessmentId] = useState<string | null>(null)
   const nav: NavItem[] = [
-    {
-      label: 'Create',
-      Icon: FilePlus2,
-      active: activeTab === 'create',
-      onClick: () => setActiveTab('create'),
-    },
-    {
-      label: 'Results',
-      Icon: BarChart3,
-      active: activeTab === 'results',
-      onClick: () => setActiveTab('results'),
-      count: generatedQuestions.length,
-    },
+    { label: 'Create', Icon: FilePlus2, active: activeTab === 'create', onClick: () => setActiveTab('create') },
+    { label: 'Assessments', Icon: BarChart3, active: activeTab === 'library', onClick: () => setActiveTab('library') },
+    { label: 'Latest draft', Icon: CheckCircle2, active: activeTab === 'results', onClick: () => setActiveTab('results') },
   ]
-
-  return (
-    <AppShell
-      nav={nav}
-      roleLabel="Teacher"
-      title={activeTab === 'create' ? 'Create a quiz' : 'Generated assessment'}
-    >
-      {activeTab === 'create' ? (
-        <QuizBuilder
-          onQuestionsGenerated={(questions, config) => {
-            setGeneratedQuestions(questions)
-            setLastConfig(config)
-            setActiveTab('results')
-          }}
-        />
-      ) : (
-        <ResultsView
-          questions={generatedQuestions}
-          config={lastConfig}
-          onBackToCreate={() => setActiveTab('create')}
-        />
-      )}
-    </AppShell>
-  )
+  return <AppShell nav={nav} roleLabel="Teacher" title={activeTab === 'create' ? 'Create a quiz' : activeTab === 'library' ? 'Your assessments' : 'Review assessment'}>
+    <div hidden={activeTab !== 'create'}><QuizBuilder onQuestionsGenerated={(_questions, _config, id) => { setAssessmentId(id); setActiveTab('results') }} /></div>
+    {activeTab === 'results' && <ResultsView assessmentId={assessmentId} onBackToCreate={() => setActiveTab('create')} />}
+    {activeTab === 'library' && <AssessmentWorkspace />}
+  </AppShell>
 }
 
 /** Lives inside AppShell so it can read the user the shell already fetched. */
 function QuizBuilder({
   onQuestionsGenerated,
 }: {
-  onQuestionsGenerated: (questions: GeneratedQuestion[], config: QuizConfig) => void
+  onQuestionsGenerated: (questions: GeneratedQuestion[], config: QuizConfig, id: string) => void
 }) {
   const { user } = useUser()
   const userId = user?.id ?? null
 
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [isDragging, setIsDragging] = useState(false)
+  const [sourceType, setSourceType] = useState<'upload' | 'text'>('upload')
+  const [textContent, setTextContent] = useState('')
 
   const [config, setConfig] = useState<QuizConfig>({
     subjectName: '',
@@ -89,6 +61,8 @@ function QuizBuilder({
     questionCount: 10,
     customCount: '',
     timeLimit: '',
+    bloomLevels: [...BLOOM_LEVELS],
+    adaptive: true,
   })
 
   const [isGenerating, setIsGenerating] = useState(false)
@@ -106,20 +80,17 @@ function QuizBuilder({
     // bytes sent, so the old timer was inventing a percentage that had nothing
     // to do with the transfer — it read "85%" on a stalled upload. The row
     // shows an indeterminate bar instead, which is the truth.
-    const { error } = await supabase.storage.from('faculty-documents').upload(path, entry.file)
-
-    setUploadedFiles(prev =>
-      prev.map(f =>
-        f.id === entry.id
-          ? error
-            ? { ...f, status: 'error', progress: 0, errorMsg: error.message }
-            : { ...f, status: 'done', progress: 100, storagePath: path }
-          : f
-      )
-    )
+    try {
+      const { error } = await supabase.storage.from('faculty-documents').upload(path, entry.file)
+      if (error) throw new Error(error.message)
+      setUploadedFiles(prev => prev.map(f => f.id === entry.id ? { ...f, status: 'done', progress: 100, storagePath: path } : f))
+    } catch (error) {
+      setUploadedFiles(prev => prev.map(f => f.id === entry.id ? { ...f, status: 'error', progress: 0, errorMsg: error instanceof Error ? error.message : 'Upload failed. Try again.' } : f))
+    }
   }, [userId])
 
   const processFiles = useCallback((raw: FileList | File[]) => {
+    if (!userId) { setGenError('Your account is still loading. Try the upload again.'); return }
     // Bytes already committed (uploading or done) — errors don't count
     const alreadyUsed = uploadedFiles
       .filter(f => f.status !== 'error')
@@ -144,6 +115,7 @@ function QuizBuilder({
       if (runningTotal > MAX_CUMULATIVE_SIZE) {
         const limitMB = (MAX_CUMULATIVE_SIZE / (1024 * 1024)).toFixed(0)
         const totalMB = (runningTotal / (1024 * 1024)).toFixed(1)
+        runningTotal -= file.size
         return {
           id: `${Date.now()}_${Math.random()}`,
           file,
@@ -158,7 +130,7 @@ function QuizBuilder({
 
     setUploadedFiles(prev => [...prev, ...entries])
     entries.filter(e => e.status === 'uploading').forEach(e => uploadToStorage(e))
-  }, [uploadToStorage, uploadedFiles])
+  }, [uploadToStorage, uploadedFiles, userId])
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
@@ -174,7 +146,8 @@ function QuizBuilder({
 
   const removeFile = async (entry: UploadedFile) => {
     if (entry.storagePath) {
-      await createClient().storage.from('faculty-documents').remove([entry.storagePath])
+      const { error } = await createClient().storage.from('faculty-documents').remove([entry.storagePath])
+      if (error) { setGenError(error.message); return }
     }
     setUploadedFiles(prev => prev.filter(f => f.id !== entry.id))
   }
@@ -184,11 +157,16 @@ function QuizBuilder({
 
   // Says the single next thing to do, rather than listing everything missing.
   const missing =
-    readyFiles.length === 0 ? 'Add at least one file'
+    sourceType === 'upload' && uploadedFiles.some(f => f.status === 'uploading') ? 'Wait for the uploads to finish'
+    : sourceType === 'upload' && readyFiles.length === 0 ? 'Add at least one file'
+    : sourceType === 'text' && textContent.trim().length < 30 ? 'Paste at least 30 characters of material'
     : !config.subjectName.trim() ? 'Enter the subject'
     : !config.gradeLevel.trim() ? 'Say who it’s for'
     : !config.topicsCovered.trim() ? 'List the topics'
     : !config.learningObjective.trim() ? 'Describe what it should test'
+    : config.questionCount < 1 || config.questionCount > 30 ? 'Choose between 1 and 30 questions'
+    : Number(config.timeLimit) > 1440 ? 'Use a time limit of at most 1,440 minutes'
+    : !config.bloomLevels?.length ? 'Select at least one cognitive level'
     : null
 
   const isReady = missing === null
@@ -202,12 +180,14 @@ function QuizBuilder({
 
     try {
       const supabase = createClient()
+      const filesToUse = sourceType === 'upload' ? readyFiles : []
       const signed = await Promise.all(
-        readyFiles.map(f =>
+        filesToUse.map(f =>
           supabase.storage.from('faculty-documents').createSignedUrl(f.storagePath!, 300)
         )
       )
-      const filesPayload = readyFiles
+      if (signed.some(item => item.error)) throw new Error('Could not prepare all document links. Retry the upload.')
+      const filesPayload = filesToUse
         .map((f, i) => ({
           name: f.file.name,
           signedUrl: signed[i].data?.signedUrl ?? '',
@@ -215,12 +195,12 @@ function QuizBuilder({
         }))
         .filter(f => f.signedUrl)
 
-      const res = await fetch(apiUrl('/generate-assessment'), {
+      const data = await apiRequest<{ sources: ExtractedSource[]; questions: GeneratedQuestion[]; assessmentId: string }>('/generate-assessment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sourceType: 'upload',
-          textContent: null,
+          sourceType,
+          textContent: sourceType === 'text' ? textContent : null,
           files: filesPayload.length > 0 ? filesPayload : null,
           config: {
             subjectName: config.subjectName,
@@ -230,20 +210,15 @@ function QuizBuilder({
             questionType: config.questionType,
             questionCount: config.questionCount,
             timeLimit: config.timeLimit,
+            bloomLevels: config.bloomLevels,
+            adaptive: config.adaptive,
           },
         }),
       })
 
-      if (!res.ok) {
-        // Every backend failure is {"error": "<one sentence>"} — safe to show.
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error ?? `Server error: ${res.status}`)
-      }
-
-      const data = await res.json()
       setExtractedSources(data.sources ?? [])
       if (data.questions && Array.isArray(data.questions) && data.questions.length > 0) {
-        onQuestionsGenerated(data.questions, config)
+        onQuestionsGenerated(data.questions, config, data.assessmentId)
       }
     } catch (err: unknown) {
       setGenError(
@@ -269,7 +244,8 @@ function QuizBuilder({
             hint="What the questions get written from."
             aside={<span className="text-xs text-text-3 tabular">{readyFiles.length} ready</span>}
           />
-          <FileUploadZone
+          <div className="flex gap-2 mb-4"><Button size="sm" variant={sourceType === 'upload' ? 'primary' : 'secondary'} onClick={() => setSourceType('upload')}>Upload files</Button><Button size="sm" variant={sourceType === 'text' ? 'primary' : 'secondary'} onClick={() => setSourceType('text')}>Paste text</Button></div>
+          {sourceType === 'text' ? <Field id="source-text" label="Course material" hint="Up to 100,000 characters."><FormInput id="source-text" multiline rows={10} placeholder="Paste your course material here" value={textContent} onChange={setTextContent} /></Field> : <FileUploadZone
             uploadedFiles={uploadedFiles}
             isDragging={isDragging}
             onDrop={handleDrop}
@@ -277,7 +253,7 @@ function QuizBuilder({
             onDragLeave={handleDragLeave}
             onFileInput={handleFileInput}
             onRemove={removeFile}
-          />
+          />}
         </Card>
 
         <Card>
@@ -327,6 +303,8 @@ function QuizBuilder({
         <Card>
           <CardHeader title="Questions" />
           <div className="flex flex-col gap-5">
+            <fieldset><legend className="text-sm font-semibold text-text-2 mb-2">Cognitive levels</legend><div className="flex flex-wrap gap-3">{BLOOM_LEVELS.map(level => <label key={level} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={config.bloomLevels?.includes(level) ?? false} className="accent-accent" onChange={e => setConf({ bloomLevels: e.target.checked ? [...(config.bloomLevels ?? []), level] : config.bloomLevels?.filter(value => value !== level) })} />{level}</label>)}</div><p className="text-xs text-text-3 mt-2">Create-level MCQs assess proposed designs; they do not directly measure producing an original artefact.</p></fieldset>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={config.adaptive ?? true} onChange={e => setConf({ adaptive: e.target.checked })} className="accent-accent" />Adapt question order to student performance</label>
 
             <div className="flex flex-col gap-2">
               <span className="text-sm font-semibold text-text-2">Type</span>
@@ -383,7 +361,7 @@ function QuizBuilder({
                     id="qcount-custom"
                     type="number"
                     min={1}
-                    max={100}
+                    max={30}
                     placeholder="Other"
                     aria-label="Custom number of questions"
                     value={config.customCount}

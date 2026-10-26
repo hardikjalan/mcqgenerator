@@ -19,6 +19,18 @@ from app.services.rag.storage.embedder import Embedder
 logger = logging.getLogger(__name__)
 
 
+def _provenance_columns(node: TextNode, file_name: str) -> dict[str, Any]:
+    """Populate columns required by the original document_chunks table."""
+    meta = node.metadata
+    pages = meta.get("page_numbers") or []
+    return {
+        "file_name": meta.get("file_name", file_name),
+        "chunk_index": meta.get("chunk_index", 0),
+        "page_start": min(pages) if pages else meta.get("page_or_slide_num"),
+        "page_end": max(pages) if pages else meta.get("page_or_slide_num"),
+    }
+
+
 class VectorStorageManager:
     """Manages embedding generation and Supabase storage for Layer 3 chunks."""
 
@@ -27,10 +39,12 @@ class VectorStorageManager:
         supabase_client: Client,
         config: StorageConfig | None = None,
         embedder: Embedder | None = None,
+        owner_id: str | None = None,
     ) -> None:
         self.supabase = supabase_client
         self.config = config or StorageConfig()
         self.embedder = embedder or Embedder(config=self.config)
+        self.owner_id = owner_id
 
     def store_chunks(self, chunking_result: ChunkingResult) -> StorageResult:
         """Embed and store the child chunks from a ChunkingResult.
@@ -66,6 +80,12 @@ class VectorStorageManager:
             result.errors.append("Mismatch between number of chunks and generated embeddings.")
             return result
 
+        if any(len(vector) != self.config.embedding_dimensions for vector in embeddings):
+            result.errors.append(
+                f"Expected {self.config.embedding_dimensions}-dimensional embeddings."
+            )
+            return result
+
         # 3. Map to Supabase rows
         rows: list[dict[str, Any]] = []
 
@@ -79,6 +99,7 @@ class VectorStorageManager:
                 "content": parent.text,
                 "embedding": None,
                 "metadata": parent.metadata,
+                **_provenance_columns(parent, chunking_result.file_name),
             })
 
         # 3b. Children (stored with embeddings for vector similarity search)
@@ -95,12 +116,21 @@ class VectorStorageManager:
                 "content": child.text,
                 "embedding": embedding,
                 "metadata": meta,
+                **_provenance_columns(child, chunking_result.file_name),
             }
             rows.append(row)
 
         # 4. Upsert into Supabase
         table_name = self.config.table_name
         try:
+            if self.owner_id:
+                # Atomic replacement prevents stale chunks and duplicate re-uploads.
+                response = self.supabase.rpc("replace_document_chunks", {
+                    "p_source_id": source_id, "p_owner_id": self.owner_id,
+                    "p_rows": rows,
+                }).execute()
+                result.chunks_inserted = int(response.data or 0)
+                return result
             # We use upsert on node_id so re-processing a document safely updates existing chunks.
             response = self.supabase.table(table_name).upsert(rows, on_conflict="node_id").execute()
             result.chunks_inserted = len(response.data or [])

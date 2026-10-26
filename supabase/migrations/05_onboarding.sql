@@ -41,13 +41,17 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 --    Lets a user set their role exactly once (only fires when role IS NULL).
 --    SECURITY DEFINER runs as the DB owner — bypasses column-level REVOKE.
 --    The WHERE role IS NULL guard is the immutability enforcement.
-CREATE OR REPLACE FUNCTION public.set_profile_role(
+DROP FUNCTION IF EXISTS public.set_profile_role(user_role, TEXT, TEXT);
+CREATE FUNCTION public.set_profile_role(
   p_role        user_role,
   p_full_name   TEXT,
   p_institution TEXT
 )
 RETURNS void AS $$
 BEGIN
+  IF p_role IS NULL OR p_role NOT IN ('student', 'faculty') THEN
+    RAISE EXCEPTION 'Invalid onboarding role';
+  END IF;
   UPDATE public.profiles
   SET
     role        = p_role,

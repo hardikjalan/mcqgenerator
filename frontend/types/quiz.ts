@@ -10,6 +10,7 @@
  */
 
 export type QuestionType = 'single' | 'multiple' | 'truefalse' | 'all'
+export type BloomLevel = 'Remember' | 'Understand' | 'Apply' | 'Analyze' | 'Evaluate' | 'Create'
 
 export type QuizConfig = {
   subjectName: string
@@ -20,6 +21,8 @@ export type QuizConfig = {
   questionCount: number
   customCount: string
   timeLimit: string
+  bloomLevels?: BloomLevel[]
+  adaptive?: boolean
 }
 
 export type GeneratedQuestion = {
@@ -27,6 +30,21 @@ export type GeneratedQuestion = {
   question: string
   options: string[]
   correct_answer: string | string[]
-  question_type?: string
+  question_type: 'single' | 'multiple' | 'truefalse'
+  explanation: string
+  evidence: Evidence[]
+  bloom_level: BloomLevel
+  bloom_rationale: string
+  difficulty: number
+  topic: string
+}
+
+export type Evidence = {
+  source_id: string
+  parent_id: string
+  quote: string
+  file_name: string
+  page: number | null
+  pages: number[]
 }
 

@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import uuid
 import tempfile
+import hashlib
 from pathlib import Path
 
 from app.services.rag.schemas import (
@@ -45,6 +46,8 @@ from app.services.rag.ingestion.exceptions import IngestionError
 import app.services.rag.ingestion.loaders.pdf_loader   # noqa: F401
 import app.services.rag.ingestion.loaders.docx_loader  # noqa: F401
 import app.services.rag.ingestion.loaders.pptx_loader  # noqa: F401
+import app.services.rag.ingestion.loaders.image_loader  # noqa: F401
+import app.services.rag.ingestion.loaders.legacy_loader  # noqa: F401
 
 
 class IngestionManager:
@@ -55,7 +58,7 @@ class IngestionManager:
 
     # ── Public API ────────────────────────────────────────────────────────
 
-    def ingest_file(self, file_path: Path) -> IngestionResult:
+    def ingest_file(self, file_path: Path, file_name: str | None = None, source_id: str | None = None) -> IngestionResult:
         """
         Ingest a file already on disk.
 
@@ -90,9 +93,10 @@ class IngestionManager:
         loader = loader_registry.get(fmt)
 
         # 3. Build metadata template
-        source_id = str(uuid.uuid4())
+        source_id = source_id or str(uuid.uuid4())
+        file_name = Path(file_name).name if file_name else file_path.name
         metadata = StandardDocumentMetadata(
-            file_name=file_path.name,
+            file_name=file_name,
             file_type=fmt,
             file_size_bytes=file_path.stat().st_size,
             source_id=source_id,
@@ -106,7 +110,7 @@ class IngestionManager:
 
         return IngestionResult(
             source_id=source_id,
-            file_name=file_path.name,
+            file_name=file_name,
             file_type=fmt,
             total_units=len(documents),
             documents=documents,
@@ -117,6 +121,7 @@ class IngestionManager:
         self,
         content: bytes,
         file_name: str,
+        owner_id: str = "local",
     ) -> IngestionResult:
         """
         Ingest raw bytes (e.g. from a Supabase download or direct upload).
@@ -142,7 +147,9 @@ class IngestionManager:
             tmp_path = Path(tmp.name)
 
         try:
-            return self.ingest_file(tmp_path)
+            digest = hashlib.sha256(content).hexdigest()
+            source_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{owner_id}:{digest}"))
+            return self.ingest_file(tmp_path, file_name=file_name, source_id=source_id)
         finally:
             # Clean up the temp file.  If removal fails (e.g. the file is
             # still locked on Windows), log it but don't crash.

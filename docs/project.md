@@ -1,186 +1,146 @@
-# Cognira
-> AI‑powered adaptive assessment platform for automated quiz generation
+# Cognira implementation guide
 
-## Overview
-Cognira transforms static study materials (PDF, DOCX, PPTX, images) into personalized multiple‑choice quizzes. Faculty upload reference documents, configure quiz parameters, and the system uses Gemini Vision OCR plus LLM generation to produce curriculum‑aligned questions, delivering a premium, glass‑morphic UI for students.
+Cognira implements the six functional modules described in
+`Review_2_Cognira_1.pptx`. The frontend is Next.js 16 / React 19; the API uses
+FastAPI, Python 3.12, Google GenAI, LlamaIndex and Supabase.
 
-## Tech Stack
-| Layer | Technology |
-|-------|------------|
-| **Frontend** | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, Lucide icons, Google Fonts (Inter, Space Grotesk) |
-| **Backend** | FastAPI, Python 3.13, LlamaIndex (`llama-index-readers-file`), `google-genai` (Gemini Vision OCR), PyMuPDF, python‑pptx |
-| **Auth & Storage** | Supabase (PostgreSQL, Auth, Storage) |
-| **CI/CD** | GitHub Actions (test, lint, deploy) |
-| **Deployment** | Vercel (frontend) • Railway / Render (backend) |
-| **Other tools** | python‑dotenv, pytest, uvicorn |
+## 1. Document ingestion
 
-## Architecture
-Cognira follows a clear client‑server split:
+Files are detected by content signatures, including inspection of Office ZIP/OLE
+containers. PDF, DOCX, PPTX, native Word 97+ DOC and legacy PPT text, PNG and JPEG
+are supported. Renaming an unsupported file does not bypass detection.
 
-1. **Authentication** – Google OAuth via Supabase.
-2. **File Upload** – Validated (PDF/DOCX/PPTX/Image ≤ 10 MB) and stored in a private Supabase bucket (`faculty‑documents`).
-3. **Extraction** – LlamaIndex readers parse each file into `Document` objects; scanned or image‑heavy PDF pages and raw images are sent to Gemini Vision OCR.
-4. **Quiz Generation** – Combined text and user‑provided configuration are sent to Gemini 2.0 Flash (future: Claude).
-5. **Delivery** – Frontend renders questions, tracks answers, and stores results.
+Text-layer extraction is preferred. Gemini vision transcribes raw images, scanned
+PDF pages, and image-only modern Office documents. Uploads go to the private
+faculty-documents bucket. The API accepts only signed HTTPS links on the configured
+Supabase host under the authenticated faculty member's own folder. Redirects are
+disabled and streaming downloads enforce the byte limit.
 
-```mermaid
-graph TD
-    User([User]) -->|OAuth| Auth[Supabase Auth]
-    Auth -->|Session| Proxy[Next.js Proxy Middleware]
-    Proxy -->|Role Check| Dashboard[Dashboard (Faculty / Student / Admin)]
-    Dashboard -->|Upload| Storage[Supabase Storage]
-    Dashboard -->|Config| ConfigForm[Quiz Config Form]
-    ConfigForm -->|Submit| Backend[FastAPI Backend]
-    Backend -->|Extract Text| Extractors[PDF / DOCX / PPTX / Image Extractors]
-    Extractors -->|Compiled Text| Gemini[Gemini Vision OCR (gemini‑2.0‑flash)]
-    Gemini -->|Text| Backend
-    Backend -->|Generate| LLM[Gemini / Claude (future)]
-    LLM -->|Questions| Dashboard
-```
+Limits: ten files and 5 MB combined per request; 100 PDF pages or PowerPoint
+slides; twenty scanned pages/images per document; 20 million pixels per image;
+100 MB expanded Office archive; 500,000 extracted characters and 1,000 child
+chunks per document. Oversized or unreadable inputs return errors.
 
-## Features
-### Completed ✅
-- Dark glass‑morphic UI with custom fonts and micro‑animations.
-- Secure Google OAuth flow with role‑based routing (faculty, student, admin).
-- Multi‑format file ingestion (PDF, DOCX, PPTX, images) with progress UI and deletion.
-- Smart document extraction: text‑layer reading, image‑area heuristics, Gemini OCR fallback.
-- 7‑step quiz‑builder wizard (subject, audience, topics, objectives, type, count, time).
-- Structured debug logging saved to `debug_extraction.txt`.
+Encrypted Office documents and uncommon pre-Word-97 variants need conversion.
+Legacy Office support extracts stored text; convert scanned legacy files to PDF
+for OCR. Vision transcription can make mistakes, particularly in equations and
+complex layouts.
 
-### In Progress 🔄
-- **AI Quiz Generation API** – wiring extracted text to Gemini/Claude for MCQ creation (V1 uses Gemini 1.5‑Flash).
-- **Student Assessment Engine** – timer, auto‑save drafts, answer validation, scoring.
+## 2. Cleaning and chunking
 
-### Planned 📋
-- Student quiz player with timer and scoring UI.
-- Analytics dashboard & adaptive difficulty engine.
-- Admin control panel (user & content management).
-- LMS export formats (QTI, CSV).
-- Multilingual question generation.
-- Local‑storage draft auto‑save.
-- Async/parallel processing for large documents (future performance boost).
+Cleaning removes recurring headers/footers, normalizes whitespace, repairs prose
+line wrapping and joins line-end hyphenation while protecting code-like content.
+Semantic chunks retain headings, tables, code and mathematical blocks. Small
+adjacent chunks merge where structure and size allow. Parent contexts retain
+page provenance and overlapping children support retrieval.
 
-## Project Structure
-Frontend and backend are separate deployables with no shared root, no shared
-`node_modules`, and no shared env file.
+Source and node identifiers are deterministic and owner-scoped. Reuploading
+identical bytes replaces that owner's source atomically through a database RPC.
+Other owners' material is never replaced.
 
-```
-mcqgenerator/
-├─ frontend/                   # Next.js 16 → Vercel
-│   ├─ app/                    # App Router
-│   │   ├─ page.tsx            # Landing / login
-│   │   ├─ auth/callback/      # Supabase OAuth callback
-│   │   ├─ onboarding/         # Role‑selection flow
-│   │   └─ dashboard/          # faculty / student / admin
-│   ├─ components/             # Placement is by AUDIENCE — see components/README.md
-│   │   ├─ ui/                 # Style‑only primitives (form fields, buttons)
-│   │   ├─ shared/             # Used by more than one role
-│   │   ├─ faculty/            # Faculty‑only
-│   │   └─ student/            # Student‑only
-│   ├─ lib/                    # Runtime helpers & constants (role‑agnostic)
-│   │   ├─ supabase/           # Browser + server clients
-│   │   ├─ file-upload.ts      # Size caps, allowed types, validators
-│   │   └─ quiz-config.ts      # Question type / count option lists
-│   ├─ types/                  # Type‑only declarations
-│   │   ├─ database.ts         # Mirrors Supabase tables & enums
-│   │   ├─ quiz.ts             # QuizConfig, QuestionType
-│   │   └─ upload.ts           # UploadedFile, ContentTab
-│   ├─ proxy.ts                # Auth + role routing middleware
-│   └─ .env.local              # NEXT_PUBLIC_* only (not committed)
-├─ backend/                    # FastAPI → Railway / Render
-│   ├─ app/
-│   │   ├─ main.py             # App setup only — middleware, handlers, routers
-│   │   ├─ core/               # config, logger, exceptions, responses
-│   │   ├─ api/routes/         # health.py, assessments.py
-│   │   ├─ schemas/            # Pydantic request/response shapes
-│   │   └─ services/extraction/# pipeline.py + ocr_fallback.py + gemini_ocr
-│   ├─ .env                    # Server‑side secrets (not committed)
-│   └─ requirements.txt
-├─ supabase/migrations/        # Numbered — run in order, 01 → 05
-├─ docs/                       # project.md, notes-qa.md
-└─ README.md                   # High‑level project overview
-```
+## 3. Grounded generation
 
-### Placement rules
-Both a faculty and a student flow live in this repo, so the boundary that
-matters is **who consumes a file**, not what it does:
+Gemini embeddings use 768 dimensions with RETRIEVAL_DOCUMENT and RETRIEVAL_QUERY
+task types. PostgreSQL pgvector/HNSW searches indexed children and returns their
+parent contexts. Each requested topic must pass a cosine similarity floor of
+0.35; at least one relevant parent per topic survives context selection.
 
-- Anything imported by both roles belongs in `lib/`, `types/`, `components/ui/`
-  or `components/shared/` — never inside `components/faculty/`.
-- A cross-role import (`app/dashboard/student` reaching into
-  `components/faculty/`) means the file is in the wrong folder. Promote it.
-- Role folders may only be imported by their own dashboard route.
-- On the backend, routes validate and delegate; the work lives in `services/`,
-  and every shared constant lives in `core/config.py`.
+Structured outputs support single-answer, multi-select and true/false items.
+Questions carry explanations, source IDs, parent IDs, quoted evidence, trusted
+file/page citations, topic, Bloom classification and difficulty. Deterministic
+checks reject missing/nonmatching evidence, invalid keys/options, near-duplicates,
+and conspicuous answer-length giveaways. A separate model pass verifies answer
+and explanation support, ambiguity, cognitive level and difficulty. Failed items
+are regenerated up to three times. An incomplete verified set is reported as an
+error rather than silently returned.
 
-## Setup & Installation
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/your-org/cognira.git
-   cd cognira
-   ```
-2. **Backend** — start this first; the faculty dashboard calls it on port 8000.
-   ```bash
-   cd backend
-   python -m venv .venv
-   . .venv/Scripts/activate   # Windows
-   pip install -r requirements.txt
-   uvicorn app.main:app --reload
-   ```
-   Create `backend/.env` with `GEMINI_API_KEY` (and `TESSERACT_CMD_PATH` if the
-   Tesseract fallback is used).
-3. **Frontend**
-   ```bash
-   cd ../frontend
-   npm install
-   npm run dev      # http://localhost:3000
-   ```
-   Create `frontend/.env.local` with the two `NEXT_PUBLIC_SUPABASE_*` values.
-4. **Supabase** – create a project, enable Auth & Storage, then run
-   `supabase/migrations/01_schema.sql` → `05_onboarding.sql` in order.
+The default generation model is gemini-3.5-flash-lite with gemini-3.8-flash
+fallback; see GenerationConfig. OCR uses the same provider. Provider access,
+quotas and response times vary. Calls have timeouts and bounded retries. A
+second model pass reduces errors but does not guarantee factual correctness;
+faculty review is part of the workflow.
 
-## API / Endpoints
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET`  | `/` | Liveness check — `{ success, data: { status } }`. |
-| `POST` | `/generate-assessment` | Takes `sourceType` + files/text + quiz config; downloads each signed URL, extracts text, returns `extracted_sources`. |
+## 4. Bloom classification
 
-Routes are defined in `backend/app/api/routes/`; interactive docs at
-`http://localhost:8000/docs`. MCQ generation from the extracted text is still
-in progress — the endpoint currently returns extraction results only.
+The generator and independent reviewer use a six-level rubric: Remember,
+Understand, Apply, Analyze, Evaluate and Create. Faculty select allowed levels
+and see the classifier's rationale. Prompts request balanced coverage where the
+material supports it. Distribution is not a calibrated educational guarantee.
 
-## Environment Variables
-Two files, no overlap. Neither is committed.
+A Create-level MCQ asks a student to judge or select a proposed design. It does
+not measure the student's ability to produce an original artifact. Difficulty
+(1–5) is an AI estimate, not an empirically calibrated item parameter.
 
-| File | Variable | Description |
-|------|----------|-------------|
-| `backend/.env` | `GEMINI_API_KEY` | Gemini Vision API key. |
-| `backend/.env` | `TESSERACT_CMD_PATH` | Optional path to the Tesseract binary (local OCR fallback). |
-| `frontend/.env.local` | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL. |
-| `frontend/.env.local` | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key. |
+## 5. Adaptive delivery and knowledge tracing
 
-Only `NEXT_PUBLIC_*` values reach the browser. The backend reads its `.env`
-once, in `app/core/config.py` — no other module calls `load_dotenv`.
+The API persists drafts, publication state, enrollment, attempts, committed
+answers and draft selections. Publishing freezes questions and yields a join code.
+Teachers can close enrollment. Existing attempts retain their recorded deadline.
 
-**Never commit real values**; keep them in `.env.local`.
+Students have one resumable attempt per assessment. The server owns deadlines,
+validates the current question and scores exact option sets. Multi-select has no
+partial credit. Draft selections autosave but do not count until submitted;
+unanswered questions count as incorrect. Server checks enforce expiry even when
+the browser timer or network is interrupted. Expired active records finalize
+when accessed, answered or inspected through analytics.
 
-## Known Issues & Limitations
-- No batching or delayed processing in V1 – documents are handled sequentially.
-- `MAX_IMAGES_PER_DOC = 5` caps image‑OCR calls per document to control cost.
-- Image‑area heuristic (`ocr_fallback.py`): a PDF page is OCR'd when it has almost no text layer beside a qualifying image, or when qualifying images cover **> 75 %** of the page. An image qualifies at ≥ 300 px on one side with an aspect ratio ≤ 8.
-- Small logos, bullet‑point graphics, or background images are ignored, but edge‑cases may still trigger OCR.
-- Only Gemini Vision OCR is integrated; other providers are not yet supported.
-- LlamaIndex's `ImageReader` is deliberately unused – its default parser pulls torch + transformers + sentencepiece, which would dominate the deploy image.
+Adaptive sequencing selects from the existing question bank, balancing topic
+coverage and choosing estimated difficulty near the student's mastery estimate.
+All bank questions remain part of the quiz; adaptation changes order, not the
+final number of questions. Fixed sequencing is also available.
 
-## Changelog
-### v1.0 — 2026‑06‑22
-- Restructured `PROJECT.md` to the new canonical template.
-- Consolidated tech‑stack, architecture diagram, and feature lists.
-- Added explicit setup instructions, API table, environment variables, known issues, and notes for future development.
+Bayesian knowledge tracing starts at 0.35, uses question-format guessing rates
+and difficulty-dependent slip, then an 0.08 learning transition. It persists
+per-topic probabilities and observation counts across completed assessments
+with the same normalized subject. Parameters are heuristics and require student
+data to calibrate. Sparse observations are explicitly labelled estimates.
 
-## Notes for Future Me
-- **SDK choice:** `google-genai` replaces the deprecated `google-generativeai`; keep it updated to the latest version.
-- **Image limits:** The 75 % area rule and `MAX_IMAGES_PER_DOC` were introduced to keep Gemini API costs predictable. Re‑evaluate thresholds if OCR quality suffers.
-- **Sequential processing:** Simpler for early testing; consider a background task queue (e.g., Celery or RQ) when scaling.
-- **Styling:** Tailwind CSS v4 is locked; avoid mixing with other CSS frameworks to maintain the glass‑morphic aesthetic.
-- **Security:** Supabase RLS policies are critical; any new storage bucket must inherit the same user‑scoped policy.
+## 6. Analysis and feedback
+
+Submitted attempts show scores, selected/correct answers, explanations,
+source quotes, topic accuracy, mastery estimates and targeted review suggestions.
+Teachers see completion counts, average scores, topic/Bloom accuracy and student
+results, with CSV export. Assessment content can be exported as JSON.
+The student progress view lists completed assessments and recent feedback.
+
+Administrators can inspect content, change roles, suspend users and inspect
+audit events. Audit writes are best effort and never invalidate an otherwise
+successful user action.
+
+## Authentication and database security
+
+Every API action validates the Supabase bearer token and database profile role.
+Editable authentication metadata is not trusted for authorization. Suspension is
+checked per request. Faculty ownership and student enrollment/attempt ownership
+are enforced server-side. Version checks protect concurrent edits and responses.
+
+Assessment tables are inaccessible to authenticated browser database clients:
+answer keys travel through the API only after submission. Upload policies enforce
+owner folders and faculty/admin status. Onboarding can choose student/faculty
+once; administrator access requires a trusted server operation. Profile RPCs
+bind the caller to auth.uid(), and browser grants exclude role and suspension.
+
+Run the original six SQL setup files, then backend/schema.sql last. The latter
+is the authoritative upgrade and hardening script, including pgvector dimensions,
+parent_id, atomic replacement, attempt state and access policies. It is repeatable
+and preserves existing data. Do not subsequently run an older setup file alone.
+
+## Validation and operational limits
+
+Unit tests cover parser signatures and Office formats, OCR dispatch, cleaning,
+stable IDs, embedding dimensions, retrieval, evidence rejection, independent
+review, scoring, adaptive selection, mastery, expiry, concurrency and access checks.
+The opt-in smoke script exercises real Supabase authentication/storage and API
+lifecycle operations; --live-generation also invokes real embeddings and Gemini.
+
+TypeScript, ESLint and a production Next.js build are required checks. Browser
+interaction testing was unavailable in this implementation session because the
+computer-use service could not validate the active URL; API and build checks do
+not substitute for final manual browser acceptance testing.
+
+List endpoints currently cap results at 100–5,000 rows depending on the resource.
+Large institutions need pagination, background ingestion/jobs, rate limits and
+calibrated mastery parameters before scaling beyond this project deployment.
+No LMS integration, plagiarism/proctoring system or multilingual accuracy
+guarantee is claimed. The presentation's illustrative extraction benchmark is
+not a measured result of this repository.

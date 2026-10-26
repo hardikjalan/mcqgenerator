@@ -34,6 +34,9 @@ BEGIN
   IF v_uid IS NULL THEN
     RAISE EXCEPTION 'Not signed in';
   END IF;
+  IF p_role IS NULL OR p_role NOT IN ('student', 'faculty') THEN
+    RAISE EXCEPTION 'Invalid onboarding role';
+  END IF;
 
   -- Email and avatar come from auth.users rather than the caller, so the row
   -- can satisfy profiles.email NOT NULL without trusting client input.

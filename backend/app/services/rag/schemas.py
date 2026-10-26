@@ -24,6 +24,9 @@ class SupportedFormat(str, Enum):
     PDF = "pdf"
     DOCX = "docx"
     PPTX = "pptx"
+    DOC = "doc"
+    PPT = "ppt"
+    IMAGE = "image"
 
 
 # ── Metadata attached to every ingested Document ─────────────────────────────

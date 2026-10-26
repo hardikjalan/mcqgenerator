@@ -1,7 +1,7 @@
 // Upload rules and helpers — shared by any role that picks files.
 // Types live in @/types/upload
 
-export const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.pptx', '.png', '.jpg', '.jpeg']
+export const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.pptx', '.doc', '.ppt', '.png', '.jpg', '.jpeg']
 
 // Per-file limit (capped at the cumulative ceiling so a single file can never
 // silently violate the batch limit). Must stay ≤ MAX_CUMULATIVE_SIZE.
@@ -13,6 +13,8 @@ export const MAX_CUMULATIVE_SIZE = 5 * 1024 * 1024  // 5 MB
 
 const ALLOWED_MIME_TYPES = [
   'application/pdf',
+  'application/msword',
+  'application/vnd.ms-powerpoint',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   'image/png',
@@ -34,6 +36,6 @@ export function validateFile(file: File): string | null {
   const ok =
     ALLOWED_MIME_TYPES.includes(file.type) ||
     ALLOWED_EXTENSIONS.some(ext => file.name.toLowerCase().endsWith(ext))
-  if (!ok) return 'Unsupported type — use PDF, DOCX, PPTX, PNG or JPG'
+  if (!ok) return 'Unsupported type — use PDF, DOC/DOCX, PPT/PPTX, PNG or JPG'
   return null
 }

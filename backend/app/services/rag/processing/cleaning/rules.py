@@ -124,10 +124,16 @@ def strip_page_number_footers(text: str) -> str:
     """
     lines = text.split("\n")
     cleaned: list[str] = []
-    for line in lines:
-        if _is_protected_line(line):
+    last_content = max((i for i, value in enumerate(lines) if value.strip()), default=-1)
+    in_code = False
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith(("```", "~~~")):
+            in_code = not in_code
             cleaned.append(line)
-        elif _PAGE_NUM_LINE_RE.match(line):
+        elif in_code or line.startswith(("    ", "\t")) or _is_protected_line(line):
+            cleaned.append(line)
+        elif (_PAGE_NUM_LINE_RE.match(line)
+              and (re.search(r"[A-Za-z-]", line) or index == last_content)):
             continue  # drop isolated page-number line
         else:
             cleaned.append(line)
@@ -164,3 +170,24 @@ def normalize_whitespace(text: str) -> str:
             lines.append(_INTERIOR_MULTI_WS_RE.sub(" ", line).rstrip())
     joined = "\n".join(lines)
     return _EXCESS_NEWLINES_RE.sub("\n\n", joined)
+
+
+def repair_line_wrapping(text: str) -> str:
+    """Join prose wraps and split-word hyphens while preserving structural blocks."""
+    lines = text.split("\n")
+    output: list[str] = []
+    in_code = False
+    for line in lines:
+        if line.lstrip().startswith("```"):
+            in_code = not in_code
+        protected = in_code or not line.strip() or bool(re.match(r"\s*(?:[#|$*+•-]|\d+[.)]\s|```)", line)) or line.startswith(("    ", "\t"))
+        previous = output[-1] if output else ""
+        if not protected and re.search(r"[a-z]-$", previous) and re.match(r"[a-z]", line):
+            output[-1] = previous[:-1] + line
+        elif (not protected and previous and len(previous) >= 45
+                and not re.match(r"\s*(?:[#|$*+•-]|\d+[.)]\s|```)", previous)
+                and not previous.rstrip().endswith((".", "!", "?", ":", ";"))):
+            output[-1] = previous.rstrip() + " " + line.lstrip()
+        else:
+            output.append(line)
+    return "\n".join(output)

@@ -38,7 +38,7 @@ class RetrievalManager:
     ) -> None:
         self.supabase = supabase_client
         self.config = config or RetrievalConfig()
-        # Reuse Layer 4 embedder (text-embedding-3-small, 1536 dim)
+        # Query and document embeddings must use the same model and dimensions.
         self.embedder = embedder or Embedder(config=StorageConfig())
 
     @staticmethod
@@ -87,9 +87,10 @@ class RetrievalManager:
 
         # 2. Embedding generation
         try:
-            embeddings = self.embedder.generate_embeddings([semantic_query_text])
-            if not embeddings or len(embeddings[0]) != 1536:
-                result.errors.append("Failed to produce valid 1536-dimensional query embedding.")
+            embeddings = self.embedder.generate_embeddings([semantic_query_text], task_type="RETRIEVAL_QUERY")
+            dimensions = self.embedder.config.embedding_dimensions
+            if not embeddings or len(embeddings[0]) != dimensions:
+                result.errors.append(f"Failed to produce valid {dimensions}-dimensional query embedding.")
                 return result
             query_embedding = embeddings[0]
         except Exception as exc:
@@ -118,6 +119,8 @@ class RetrievalManager:
         # 4. Parse retrieved child chunks
         child_chunks: list[RetrievedChildChunk] = []
         for r in rows:
+            if float(r.get("similarity", 0.0)) < self.config.minimum_similarity:
+                continue
             child = RetrievedChildChunk(
                 node_id=r["node_id"],
                 parent_id=r.get("parent_id"),

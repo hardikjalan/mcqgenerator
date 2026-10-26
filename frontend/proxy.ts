@@ -25,10 +25,15 @@ export async function proxy(request: NextRequest) {
   // Refresh session (required by @supabase/ssr to keep cookies alive)
   const { data: { user } } = await supabase.auth.getUser()
   const pathname = request.nextUrl.pathname
+  const redirect = (path: string) => {
+    const response = NextResponse.redirect(new URL(path, request.url))
+    for (const cookie of supabaseResponse.cookies.getAll()) response.cookies.set(cookie)
+    return response
+  }
 
   // ── Rule 1: Logged-out user → redirect to login ──────────────────────────
   if (!user) {
-    return NextResponse.redirect(new URL('/', request.url))
+    return redirect('/')
   }
 
   // ── Rule 2: Logged-in user — read their role ─────────────────────────────
@@ -38,7 +43,7 @@ export async function proxy(request: NextRequest) {
   // which Rule 3 below handles by redirecting to /onboarding.
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role,suspended')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -47,25 +52,26 @@ export async function proxy(request: NextRequest) {
   }
 
   const role = profile?.role
+  if (profile?.suspended) return redirect('/?error=suspended')
 
   // ── Rule 3: No role yet → must complete onboarding ───────────────────────
   if (!role) {
     if (pathname !== '/onboarding') {
-      return NextResponse.redirect(new URL('/onboarding', request.url))
+      return redirect('/onboarding')
     }
     return supabaseResponse
   }
 
   // ── Rule 4: Already onboarded → block /onboarding (go to dashboard) ──────
   if (pathname === '/onboarding') {
-    return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url))
+    return redirect(`/dashboard/${role}`)
   }
 
   // ── Rule 5: Enforce role-specific dashboard access ────────────────────────
   if (pathname.startsWith('/dashboard')) {
     const allowedPrefix = `/dashboard/${role}`
-    if (!pathname.startsWith(allowedPrefix)) {
-      return NextResponse.redirect(new URL(allowedPrefix, request.url))
+    if (pathname !== allowedPrefix && !pathname.startsWith(`${allowedPrefix}/`)) {
+      return redirect(allowedPrefix)
     }
   }
 

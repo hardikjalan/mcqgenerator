@@ -1,29 +1,18 @@
 'use client'
-
+import { useState } from 'react'
 import { LayoutDashboard, Users, FileStack } from 'lucide-react'
 import { AppShell, type NavItem } from '@/components/shared/AppShell'
-import { Card } from '@/components/ui/Card'
-
-const NAV: NavItem[] = [
-  { label: 'Overview', href: '/dashboard/admin', Icon: LayoutDashboard },
-  { label: 'People',   Icon: Users },
-  { label: 'Content',  Icon: FileStack },
-]
+import { AdminWorkspace } from '@/components/shared/AdminWorkspace'
+import { AssessmentWorkspace } from '@/components/shared/AssessmentWorkspace'
 
 export default function AdminDashboard() {
-  return (
-    <AppShell nav={NAV} roleLabel="Admin" title="Overview">
-      <div className="max-w-3xl mx-auto">
-        <Card className="flex flex-col items-center text-center gap-3 py-14">
-          <span className="w-11 h-11 rounded-lg bg-accent-soft border border-accent-line text-accent flex items-center justify-center">
-            <LayoutDashboard className="w-5 h-5" aria-hidden="true" />
-          </span>
-          <h2 className="text-lg font-bold text-text">Nothing to show yet</h2>
-          <p className="text-base text-text-2 max-w-sm">
-            Managing people and reviewing published content will live here.
-          </p>
-        </Card>
-      </div>
-    </AppShell>
-  )
+  const [mode, setMode] = useState<'people' | 'content' | 'audit'>('people')
+  const nav: NavItem[] = [
+    { label: 'People', Icon: Users, active: mode === 'people', onClick: () => setMode('people') },
+    { label: 'Assessments', Icon: FileStack, active: mode === 'content', onClick: () => setMode('content') },
+    { label: 'Activity', Icon: LayoutDashboard, active: mode === 'audit', onClick: () => setMode('audit') },
+  ]
+  return <AppShell nav={nav} roleLabel="Admin" title={mode === 'people' ? 'Account management' : mode === 'content' ? 'Assessments' : 'Activity log'}>
+    {mode === 'content' ? <AssessmentWorkspace /> : <AdminWorkspace mode={mode} />}
+  </AppShell>
 }

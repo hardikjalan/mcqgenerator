@@ -55,6 +55,7 @@ function FileListItem({ entry, onRemove }: { entry: UploadedFile; onRemove: (e: 
         {entry.status === 'error' && <AlertCircle className="w-4 h-4 text-danger" aria-label="Failed" />}
         <button
           onClick={() => onRemove(entry)}
+          disabled={entry.status === 'uploading'}
           aria-label={`Remove ${entry.file.name}`}
           className="p-1 rounded-sm text-text-3 hover:text-danger hover:bg-surface-2 cursor-pointer transition-colors"
         >
@@ -112,7 +113,7 @@ export function FileUploadZone({
           {isDragging ? 'Drop them here' : 'Drop files here, or click to browse'}
         </span>
         <span className="text-xs text-text-3">
-          PDF · DOCX · PPTX · PNG · JPG — 5 MB in total
+          PDF · DOC/DOCX · PPT/PPTX · PNG · JPG — 5 MB in total
         </span>
       </button>
 

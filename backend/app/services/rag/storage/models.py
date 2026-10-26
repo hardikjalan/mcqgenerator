@@ -13,9 +13,9 @@ from pydantic import BaseModel, Field
 class StorageConfig(BaseModel):
     """Configuration for embedding and Supabase storage."""
 
-    # Embedding settings (Google Gemini gemini-embedding-001 with 1536 output dimensionality)
+    # Must match document_chunks.embedding in backend/schema.sql.
     embedding_model: str = "gemini-embedding-001"
-    embedding_dimensions: int = 1536
+    embedding_dimensions: int = 768
     embedding_batch_size: int = 100
 
     # Supabase settings

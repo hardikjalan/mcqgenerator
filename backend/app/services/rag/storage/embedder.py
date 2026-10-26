@@ -26,11 +26,11 @@ class Embedder:
         if client is not None:
             self.client = client
         elif api_key:
-            self.client = genai.Client(api_key=api_key)
+            self.client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=60000, retry_options=types.HttpRetryOptions(attempts=1)))
         else:
-            self.client = genai.Client()
+            self.client = genai.Client(http_options=types.HttpOptions(timeout=60000, retry_options=types.HttpRetryOptions(attempts=1)))
 
-    def generate_embeddings(self, texts: list[str]) -> list[list[float]]:
+    def generate_embeddings(self, texts: list[str], task_type: str = "RETRIEVAL_DOCUMENT") -> list[list[float]]:
         """Generate embeddings for a list of texts in batches.
 
         Parameters
@@ -41,7 +41,7 @@ class Embedder:
         Returns
         -------
         list[list[float]]
-            A list of embedding vectors (1536 dimensions for gemini-embedding-001).
+            Embedding vectors with the configured output dimensionality.
         """
         if not texts:
             return []
@@ -49,7 +49,8 @@ class Embedder:
         embeddings: list[list[float]] = []
         batch_size = self.config.embedding_batch_size
         embed_config = types.EmbedContentConfig(
-            output_dimensionality=self.config.embedding_dimensions
+            output_dimensionality=self.config.embedding_dimensions,
+            task_type=task_type,
         )
 
         for i in range(0, len(texts), batch_size):

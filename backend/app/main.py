@@ -13,6 +13,7 @@ The endpoints live in routes.py and the request/response shapes in schemas.py.
 """
 
 import os
+import logging
 from pathlib import Path
 
 from dotenv import find_dotenv, load_dotenv
@@ -59,6 +60,13 @@ ALLOWED_ORIGINS = [
 ]
 
 app = FastAPI(title="MCQ Generator API")
+rag_logger = logging.getLogger("app.services.rag")
+if not rag_logger.handlers:
+    rag_handler = logging.StreamHandler()
+    rag_handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    rag_logger.addHandler(rag_handler)
+rag_logger.setLevel(logging.INFO)
+rag_logger.propagate = False
 
 app.add_middleware(
     CORSMiddleware,
@@ -84,7 +92,8 @@ async def http_error_handler(request: Request, exc: StarletteHTTPException) -> J
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     # The field-level detail is for us, not the user — log it, send a sentence.
-    print(f"[validation] {request.method} {request.url.path}: {exc.errors()}")
+    fields = [".".join(str(part) for part in error["loc"]) for error in exc.errors()]
+    logging.getLogger(__name__).warning("Invalid request: %s %s fields=%s", request.method, request.url.path, fields)
     return JSONResponse(
         status_code=422,
         content={"error": "The request was not in the format the server expected."},
@@ -92,3 +101,12 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
 
 
 app.include_router(router)
+
+from app.assessment_routes import router as assessment_router
+app.include_router(assessment_router)
+
+
+@app.exception_handler(Exception)
+async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    logging.getLogger(__name__).exception("Request failed: %s %s", request.method, request.url.path, exc_info=exc)
+    return JSONResponse(status_code=500, content={"error": "The request could not be completed. Please try again."})

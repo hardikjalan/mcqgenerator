@@ -26,6 +26,7 @@ const STEPS = [
 ]
 
 const ERROR_MESSAGES: Record<string, string> = {
+  suspended: 'Your account is suspended. Contact your administrator to restore access.',
   auth_failed: 'Sign-in didn’t complete. Please try again.',
   cancelled: 'Sign-in was cancelled. Pick your Google account to continue.',
   no_email: 'We couldn’t read the email address on that Google account. Try signing in with a different one.',

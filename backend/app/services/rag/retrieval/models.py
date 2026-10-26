@@ -13,7 +13,8 @@ from pydantic import BaseModel, Field
 class RetrievalConfig(BaseModel):
     """Configuration options for Layer 5 vector retrieval."""
 
-    top_k: int = 5
+    top_k: int = 8
+    minimum_similarity: float = 0.35
     table_name: str = "document_chunks"
     rpc_name: str = "match_document_chunks"
 

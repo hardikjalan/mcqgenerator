@@ -25,7 +25,7 @@ class UnsupportedFileTypeError(IngestionError):
         ext = f" (detected as {detected})" if detected else ""
         super().__init__(
             f"Unsupported file type: {file_name}{ext}. "
-            "Supported formats: PDF, DOC, DOCX, PPT, PPTX.",
+            "Supported formats: PDF, DOC, DOCX, PPT, PPTX, PNG and JPG.",
         )
 
 

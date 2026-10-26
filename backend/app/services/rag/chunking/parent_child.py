@@ -158,7 +158,7 @@ class ParentChildChunker:
         primary_page = all_pages[0] if all_pages else base_metadata.get("page_or_slide_num")
 
         # ── Create parent node ───────────────────────────────────────────────
-        parent_id = str(uuid.uuid4())
+        parent_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{base_metadata.get('source_id')}:parent:{all_pages}:{parent_text}"))
         parent_meta = {
             **base_metadata,
             "node_id": parent_id,
@@ -204,7 +204,7 @@ class ParentChildChunker:
     ) -> list[TextNode]:
         """Create child nodes from the semantic chunks within a parent window."""
         children: list[TextNode] = []
-        for sc in window_chunks:
+        for position, sc in enumerate(window_chunks):
             child = self._make_child_node(
                 text=sc.text,
                 parent_id=parent_node.node_id,
@@ -212,6 +212,7 @@ class ParentChildChunker:
                 semantic_type=sc.semantic_type,
                 page_numbers=sc.page_numbers,
                 base_metadata=base_metadata,
+                position=position,
             )
             children.append(child)
 
@@ -225,9 +226,10 @@ class ParentChildChunker:
         semantic_type: SemanticType,
         page_numbers: list[int],
         base_metadata: dict,
+        position: int = 0,
     ) -> TextNode:
         """Construct a single child ``TextNode`` with full metadata."""
-        child_id = str(uuid.uuid4())
+        child_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{parent_id}:{position}:{text}"))
         primary_page = page_numbers[0] if page_numbers else base_metadata.get("page_or_slide_num")
 
         child_meta = {

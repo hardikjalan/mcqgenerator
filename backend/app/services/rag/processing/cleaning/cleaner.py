@@ -22,6 +22,7 @@ from app.services.rag.processing.cleaning.rules import (
     remove_control_characters,
     strip_page_number_footers,
     normalize_whitespace,
+    repair_line_wrapping,
 )
 
 
@@ -39,6 +40,7 @@ class TextCleaner:
         normalize_unicode,
         remove_control_characters,
         strip_page_number_footers,
+        repair_line_wrapping,
         normalize_whitespace,
     )
 

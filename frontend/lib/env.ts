@@ -50,7 +50,7 @@ export const SUPABASE_ANON_KEY = required(
  * of the app quietly trying to reach the user's own machine.
  */
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ??
+  process.env.NEXT_PUBLIC_API_URL?.trim() ||
   (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000')
 
 /** Build a backend URL. `apiUrl('/generate-assessment')` */

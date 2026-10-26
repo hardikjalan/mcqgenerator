@@ -1,106 +1,95 @@
 # Cognira
 
-AI-powered adaptive assessment platform. Faculty upload course material and
-configure a quiz; the system extracts the text and generates MCQs. Students take
-the generated assessments.
+Source-grounded, adaptive assessments for faculty and students.
 
-Full detail — architecture, features, roadmap — lives in [docs/project.md](docs/project.md).
+Faculty can upload PDF, DOCX, PPTX, DOC, PPT, PNG or JPEG files, or paste source
+text; generate and review questions; publish a timed quiz; and inspect results.
+Students join with a code, resume saved attempts, and receive scores, explanations,
+source citations and topic feedback. Administrators manage accounts and content.
 
-## Layout
+See [the implementation guide](docs/project.md) for architecture, limitations and
+verification, and [the completed checklist](docs/implementation-progress.md) for
+the six modules from the review presentation.
 
-Two independently deployable apps in one repo:
+## Local setup
 
-```
-mcqgenerator/
-├─ frontend/            # Next.js 16 (App Router) → deploys to Vercel
-├─ backend/             # FastAPI + Gemini OCR    → deploys to Railway / Render
-├─ supabase/migrations/ # Numbered SQL — run 01 → 05 in order
-└─ docs/                # project.md, notes-qa.md
-```
+Use Python 3.12 and Node.js 20.9 or newer.
 
-Nothing outside `frontend/` is needed to build the frontend, and nothing outside
-`backend/` is needed to run the API. Each owns its own env file — they never
-share one.
+1. Copy the root `.env.example` to `.env` and fill in your server credentials.
+2. Copy `frontend/.env.example` to `frontend/.env.local` and fill in the public
+   Supabase URL/key and API address.
+3. In Supabase SQL Editor, run `supabase/migrations/01_schema.sql` through
+   `06_signin_hardening.sql` in order, then **run `backend/schema.sql` last**.
+   Existing installations can run `backend/schema.sql` alone. It upgrades tables,
+   retrieval, assessment persistence and access policies without dropping data.
+4. Enable Google OAuth in Supabase Auth. Allow
+   `http://localhost:3000/auth/callback` as a redirect URL.
 
-## Running it
+Start the API in one PowerShell terminal:
 
-Two terminals. **Backend first** — the faculty dashboard calls it on port 8000.
-
-**Backend** (from `backend/`):
-
-```bash
-python -m venv .venv && .venv/Scripts/activate && pip install -r requirements.txt && uvicorn app.main:app --reload
-```
-
-**Frontend** (from `frontend/`):
-
-```bash
-npm install && npm run dev
+```powershell
+cd backend
+py -3.12 -m venv .venv
+.venv/Scripts/python.exe -m pip install -r requirements.txt
+.venv/Scripts/python.exe -m uvicorn app.main:app --reload
 ```
 
-Open http://localhost:3000.
+Start the frontend in another:
 
-## Environment
-
-Neither env file is committed — copy the templates:
-
-```bash
-cp frontend/.env.example frontend/.env.local
+```powershell
+cd frontend
+npm ci
+npm run dev
 ```
 
-| File | Variables |
-|------|-----------|
-| `frontend/.env.local` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_API_URL` |
-| `backend/.env` | `GEMINI_API_KEY`, `TESSERACT_CMD_PATH` |
+Open http://localhost:3000. API documentation is at http://localhost:8000/docs.
+On first sign-in choose faculty or student. To create your first administrator
+after that person has signed in:
 
-Only `NEXT_PUBLIC_*` values reach the browser — server-side secrets belong in
-`backend/.env` and nowhere else.
+```powershell
+cd backend
+.venv/Scripts/python.exe scripts/bootstrap_admin.py person@example.com
+```
 
-## Database
+The service role key and Gemini key belong only in the root server `.env` or
+backend hosting environment. Never put them in `NEXT_PUBLIC_*` variables.
 
-Run the files in `supabase/migrations/` in the Supabase SQL Editor in numeric
-order (`01_schema.sql` → `06_signin_hardening.sql`). They are idempotent, so
-re-running is safe.
+## Use
 
-## Deploying
+- Faculty: upload material or paste text, configure topics, formats, Bloom levels,
+  count and duration, then generate. Review/edit the saved draft, publish and
+  share its join code. The Assessments tab holds saved drafts and results.
+- Students: join with the code, start or resume, then submit each answer to move
+  on. Selections autosave; only committed answers count towards the score.
+- Admins: manage roles and suspension, inspect assessments and review audit events.
 
-The frontend and backend deploy separately. **This repo has no `package.json` at
-its root** — it's at `frontend/package.json`, so the host has to be told where
-to look or it won't find Next.js at all.
+## Verification
 
-### Vercel (frontend)
+```powershell
+cd backend
+.venv/Scripts/python.exe -m unittest discover -p 'test_*.py'
+```
 
-| Setting | Value |
-|---|---|
-| **Root Directory** | `frontend` |
-| Framework Preset | Next.js (auto-detected once the root is right) |
-| Build Command | leave default |
+From `frontend`, run `npx tsc --noEmit`, `npx eslint` and `npm run build`.
+Stop `next dev` before a production build because they share `.next`.
 
-Then add the three `NEXT_PUBLIC_*` variables under **Settings → Environment
-Variables**. The build reads them, so a deploy started before they were added
-will fail — add them, then redeploy.
+The opt-in live integration test requires a running local API and real service
+credentials. It creates isolated test accounts and removes their data afterwards:
 
-Set `NEXT_PUBLIC_API_URL` to the deployed backend address, not localhost.
+```powershell
+cd backend
+.venv/Scripts/python.exe scripts/smoke_assessment.py --live-generation
+```
 
-### Backend (Railway / Render)
+## Deployment
 
-| Setting | Value |
-|---|---|
-| Root Directory | `backend` |
-| Start command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+Deploy `frontend/` to Vercel (root directory: `frontend`). Set its public
+environment variables before building; `NEXT_PUBLIC_API_URL` must point to the
+deployed API.
 
-Add `GEMINI_API_KEY`, and add the deployed frontend address to `ALLOWED_ORIGINS`
-in `backend/app/core/config.py` — otherwise the browser blocks every request as
-a cross-origin violation.
-
-## Where things go
-
-Both a faculty and a student flow live here, so placement follows **who uses a
-file**, not what it does:
-
-- `frontend/components/` — see [components/README.md](frontend/components/README.md) for the
-  `ui/` vs `shared/` vs `faculty/` vs `student/` rule.
-- `frontend/lib/`, `frontend/types/` — role-agnostic. Anything both roles import
-  belongs here, never inside a role folder.
-- `backend/app/api/routes/` — one module per resource; routes stay thin.
-- `backend/app/services/` — the actual work. Reusable without importing FastAPI.
+Deploy `backend/` separately using
+`uvicorn app.main:app --host 0.0.0.0 --port $PORT`. Supply
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY` and
+`ALLOWED_ORIGINS=https://your-frontend-domain`. Add the deployed OAuth callback
+to Supabase's redirect allowlist. Set the host request timeout high enough for
+document extraction, embeddings, generation and independent review.

@@ -302,7 +302,16 @@ class SemanticSplitter:
                 "\n\n".join(current_parts), hierarchy, pages,
             ))
 
-        return chunks
+        merged: list[SemanticChunk] = []
+        for chunk in chunks:
+            if (merged and count_tokens(chunk.text, self.config) < min(128, target // 4)
+                    and merged[-1].hierarchy == chunk.hierarchy
+                    and count_tokens(merged[-1].text + "\n\n" + chunk.text, self.config) <= target):
+                merged[-1].text += "\n\n" + chunk.text
+                merged[-1].page_numbers = sorted(set(merged[-1].page_numbers + chunk.page_numbers))
+            else:
+                merged.append(chunk)
+        return merged
 
     # ── Private helpers ──────────────────────────────────────────────────────
 
@@ -326,6 +335,8 @@ class SemanticSplitter:
         overlap: int,
     ) -> list[str]:
         """Split an oversized paragraph at sentence boundaries with overlap."""
+        if _FENCED_CODE_RE.match(text.lstrip()) or _TABLE_LINE_RE.match(text) or _LATEX_BLOCK_START.match(text.lstrip()):
+            return [text]
         sentences = _SENTENCE_BOUNDARY_RE.split(text)
         if len(sentences) <= 1:
             # Cannot split further — return as-is (atomic).

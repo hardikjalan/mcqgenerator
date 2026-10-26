@@ -84,6 +84,7 @@ class DocxLoader(BaseLoader):
         from docx.oxml.ns import qn
 
         body = docx_doc.element.body
+        paragraphs = {p._element: p for p in docx_doc.paragraphs}
         # Build a lookup for table XML elements → table objects
         table_elements = {tbl._element: tbl for tbl in docx_doc.tables}
 
@@ -92,11 +93,7 @@ class DocxLoader(BaseLoader):
 
             if tag == qn("w:p"):
                 # It's a paragraph — find the matching Paragraph object
-                para = None
-                for p in docx_doc.paragraphs:
-                    if p._element is child:
-                        para = p
-                        break
+                para = paragraphs.get(child)
                 if para is None or not para.text.strip():
                     continue
 
@@ -112,6 +109,14 @@ class DocxLoader(BaseLoader):
                         parts.append(md_table)
 
         text = "\n\n".join(parts)
+        if not text.strip():
+            import zipfile
+            from app.services.rag.ingestion.vision import read_image
+            with zipfile.ZipFile(file_path) as archive:
+                images = [name for name in archive.namelist() if name.startswith("word/media/") and name.lower().endswith((".png", ".jpg", ".jpeg"))]
+                if len(images) > 20:
+                    raise ValueError("A document can OCR up to 20 embedded images. Split this file.")
+                text = "\n\n".join(read_image(archive.read(name), "image/png" if name.lower().endswith(".png") else "image/jpeg") for name in images)
 
         doc = Document(text=text)
         doc_meta = metadata.model_copy(

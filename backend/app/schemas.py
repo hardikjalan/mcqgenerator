@@ -12,31 +12,44 @@ both together.
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 # ── Request ───────────────────────────────────────────────────────────────────
 
 class QuizConfig(BaseModel):
-    subjectName: str
-    topicsCovered: str
-    learningObjective: str
-    gradeLevel: str
-    questionType: str
-    questionCount: int
-    timeLimit: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+    subjectName: str = Field(min_length=1, max_length=200)
+    topicsCovered: str = Field(min_length=1, max_length=2000)
+    learningObjective: str = Field(min_length=1, max_length=2000)
+    gradeLevel: str = Field(min_length=1, max_length=200)
+    questionType: Literal["single", "multiple", "truefalse", "all"]
+    questionCount: int = Field(ge=1, le=30)
+    timeLimit: str = Field(default="", pattern=r"^\d{0,4}$")
+    bloomLevels: list[Literal["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"]] = Field(
+        default_factory=lambda: ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"],
+        min_length=1, max_length=6,
+    )
+    adaptive: bool = True
+
+    @field_validator("timeLimit")
+    @classmethod
+    def valid_time_limit(cls, value: str) -> str:
+        if value and not 1 <= int(value) <= 1440:
+            raise ValueError("Time limit must be between 1 and 1,440 minutes.")
+        return value
 
 
 class FileItem(BaseModel):
-    name: str        # original filename, e.g. "lecture.pdf"
-    signedUrl: str   # short-lived Supabase URL to download it from
-    size_bytes: int  # browser-reported size, used for the cumulative cap
+    name: str = Field(min_length=1, max_length=255)
+    signedUrl: str = Field(min_length=1, max_length=4096)
+    size_bytes: int = Field(ge=1, le=5 * 1024 * 1024)
 
 
 class GenerateRequest(BaseModel):
     sourceType: Literal["upload", "text"]
-    textContent: str | None = None
-    files: list[FileItem] | None = None
+    textContent: str | None = Field(default=None, max_length=100000)
+    files: list[FileItem] | None = Field(default=None, max_length=10)
     config: QuizConfig
 
 
@@ -63,5 +76,6 @@ from app.services.rag.generation.models import GeneratedQuestion
 
 class GenerateResponse(BaseModel):
     sources: list[SourceResult]
-    questions: list[GeneratedQuestion] = []
+    questions: list[GeneratedQuestion] = Field(default_factory=list)
+    assessmentId: str | None = None
 

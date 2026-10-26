@@ -61,7 +61,10 @@ class PptxLoader(BaseLoader):
             ) from exc
 
         total_slides = len(prs.slides)
+        if total_slides > 100:
+            raise ValueError("Presentation exceeds the 100-slide processing limit.")
         result: list[Document] = []
+        ocr_images = 0
 
         for idx, slide in enumerate(prs.slides):
             slide_num = idx + 1
@@ -95,6 +98,14 @@ class PptxLoader(BaseLoader):
                     parts.append(f"\n**Notes:** {notes_text}")
 
             text = "\n\n".join(parts)
+            if len(text.strip()) < 40:
+                from app.services.rag.ingestion.vision import read_image
+                for shape in slide.shapes:
+                    if shape.shape_type == 13:
+                        ocr_images += 1
+                        if ocr_images > 20:
+                            raise ValueError("A presentation can OCR up to 20 images. Split this file.")
+                        text += "\n\n" + read_image(shape.image.blob, shape.image.content_type)
 
             doc = Document(text=text)
             slide_meta = metadata.model_copy(
