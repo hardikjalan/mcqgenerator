@@ -1,8 +1,9 @@
 'use client'
 
-import { ArrowLeft, CheckCircle2, FileQuestion, HelpCircle } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, FileQuestion } from 'lucide-react'
 import type { GeneratedQuestion, QuizConfig } from '@/types/quiz'
-import { Card, CardHeader } from '@/components/ui/Card'
+import { BLOOM_BY_KEY, BLOOM_LEVELS } from '@/lib/quiz-config'
+import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 
 type ResultsViewProps = {
@@ -42,6 +43,13 @@ export function ResultsView({ questions, config, onBackToCreate }: ResultsViewPr
     return String.fromCharCode(65 + idx) // A, B, C, D...
   }
 
+  // How many questions landed at each Bloom level, in ascending order. This is
+  // the number a teacher actually wants: a quiz that is entirely "Remember"
+  // looks fine question by question and only shows up in the totals.
+  const bloomSpread = BLOOM_LEVELS
+    .map(level => ({ ...level, count: questions.filter(q => q.bloom_level === level.key).length }))
+    .filter(level => level.count > 0)
+
   return (
     <div className="max-w-4xl mx-auto flex flex-col gap-6">
       {/* ── Top Bar / Header ────────────────────────────────────────── */}
@@ -61,6 +69,20 @@ export function ResultsView({ questions, config, onBackToCreate }: ResultsViewPr
           {config?.topicsCovered && (
             <p className="text-xs text-text-3">
               Topics: <span className="text-text-2">{config.topicsCovered}</span>
+            </p>
+          )}
+          {bloomSpread.length > 0 && (
+            <p className="text-xs text-text-3">
+              Cognitive levels:{' '}
+              {bloomSpread.map((level, i) => (
+                <span key={level.key}>
+                  {i > 0 && <span aria-hidden="true"> · </span>}
+                  <span className={level.higherOrder ? 'text-accent' : 'text-text-2'}>
+                    {level.label}
+                  </span>
+                  <span className="text-text-2 tabular"> {level.count}</span>
+                </span>
+              ))}
             </p>
           )}
         </div>
@@ -94,6 +116,19 @@ export function ResultsView({ questions, config, onBackToCreate }: ResultsViewPr
                       : 'Single Choice'}
                   </span>
                 </div>
+                {q.bloom_level && BLOOM_BY_KEY[q.bloom_level] && (
+                  <span
+                    className={[
+                      'text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0',
+                      BLOOM_BY_KEY[q.bloom_level].higherOrder
+                        ? 'bg-accent-soft text-accent border-accent-line'
+                        : 'bg-surface-2 text-text-2 border-border-subtle',
+                    ].join(' ')}
+                    title="Bloom's taxonomy level — the thinking this question asks for"
+                  >
+                    {BLOOM_BY_KEY[q.bloom_level].label}
+                  </span>
+                )}
               </div>
 
               {/* Question text */}

@@ -22,11 +22,21 @@ export type QuizConfig = {
   timeLimit: string
 }
 
+/**
+ * Bloom's taxonomy levels, in increasing order of cognitive demand.
+ *
+ * Mirrors BloomLevel in backend/app/services/rag/generation/models.py — change
+ * both together. 'create' is absent on purpose: it requires the student to
+ * produce something original, which multiple choice cannot assess.
+ */
+export type BloomLevel = 'remember' | 'understand' | 'apply' | 'analyze' | 'evaluate'
+
 export type GeneratedQuestion = {
   id: number
   question: string
   options: string[]
   correct_answer: string | string[]
   question_type?: string
+  /** Optional so a response from a backend without tagging still type-checks. */
+  bloom_level?: BloomLevel
 }
-

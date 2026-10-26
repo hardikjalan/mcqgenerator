@@ -11,18 +11,50 @@ from __future__ import annotations
 import logging
 import os
 import time
+from collections import Counter
 from google import genai
 from google.genai import errors, types
 
 from app.schemas import QuizConfig
 from app.services.rag.retrieval.models import RetrievedParentContext
 from app.services.rag.generation.models import (
+    BLOOM_LEVELS,
     GeneratedQuestion,
     GeneratedQuiz,
     GenerationConfig,
 )
 
 logger = logging.getLogger(__name__)
+
+
+# Tagging rubric sent with every generation request.
+#
+# The wording fights label inflation on purpose. Left to itself a model reaches
+# for "analyze" because it sounds like a better question, so the rubric names the
+# distinction it actually gets wrong - cognitive demand vs subject difficulty -
+# and tells it to round DOWN when a question sits between two levels. An
+# over-tagged quiz is worse than an untagged one: it tells a teacher their
+# assessment probes deep thinking when it only asks for recall.
+_BLOOM_TAGGING_RULES = """Tag every question with the Bloom's taxonomy level a student must operate at
+to answer it. Judge the THINKING THE QUESTION DEMANDS, not how advanced the
+subject matter is: a question on a difficult topic is still 'remember' if the
+student only has to recall a fact stated in the material.
+
+- remember:   Recall a fact, definition, term, date, or list stated in the material.
+- understand: Explain an idea in other words, summarise, classify, compare, or
+              recognise an example of a concept given in the material.
+- apply:      Use a rule, formula, procedure, or principle to reach a result for a
+              case that is NOT already worked out in the material.
+- analyze:    Break something apart - separate cause from effect, identify an
+              unstated assumption, infer a relationship, or explain why something
+              fails.
+- evaluate:   Judge against a criterion - decide which claim is best supported,
+              which critique is strongest, or which approach is most defensible.
+
+Be conservative and honest. Most questions written directly from reference text
+are 'remember' or 'understand'. Do NOT label a question 'analyze' or 'evaluate'
+because it seems more impressive. If a question sits between two levels, choose
+the LOWER one."""
 
 
 class MCQGenerator:
@@ -126,6 +158,8 @@ class MCQGenerator:
             f"Total Number of Questions: EXACTLY {target_count}\n\n"
             f"=== QUESTION FORMAT RULES ===\n"
             f"{type_rules}\n\n"
+            f"=== COGNITIVE LEVEL TAGGING ===\n"
+            f"{_BLOOM_TAGGING_RULES}\n\n"
             f"=== STRICT GENERATION CONSTRAINTS ===\n"
             f"1. You MUST generate questions grounded ONLY in the reference context provided below.\n"
             f"2. Do NOT invent information, facts, or assumptions outside the reference context.\n"
@@ -136,6 +170,7 @@ class MCQGenerator:
             f"   - `options`: array of choices\n"
             f"   - `correct_answer`: correct choice text or array of choices\n"
             f"   - `question_type`: 'single', 'multiple', or 'truefalse'\n"
+            f"   - `bloom_level`: one of 'remember', 'understand', 'apply', 'analyze', 'evaluate'\n"
             f"5. Do NOT include explanations, rationale, or markdown commentary.\n\n"
             f"=== REFERENCE CONTEXT ===\n"
             f"{combined_context}\n"
@@ -169,6 +204,15 @@ class MCQGenerator:
         # Ensure IDs are 1-indexed sequentially
         for idx, q in enumerate(quiz.questions, start=1):
             q.id = idx
+
+        # Surface the cognitive spread. A quiz that comes back entirely
+        # 'remember' says something about the retrieved context or the source
+        # material rather than being a failure, so this is logged, not raised on.
+        spread = Counter(q.bloom_level for q in quiz.questions)
+        logger.info(
+            "Bloom distribution: %s",
+            ", ".join(f"{lvl}={spread[lvl]}" for lvl in BLOOM_LEVELS if spread[lvl]),
+        )
 
         return quiz.questions
 
