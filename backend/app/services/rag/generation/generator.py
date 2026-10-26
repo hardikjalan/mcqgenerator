@@ -16,6 +16,7 @@ from google import genai
 from google.genai import errors, types
 
 from app.schemas import QuizConfig
+from app.services.adaptive import DIFFICULTIES, PoolPlan, plan_pool
 from app.services.rag.retrieval.models import RetrievedParentContext
 from app.services.rag.generation.models import (
     BLOOM_LEVELS,
@@ -57,6 +58,35 @@ because it seems more impressive. If a question sits between two levels, choose
 the LOWER one."""
 
 
+# Difficulty is deliberately judged on different evidence from Bloom's level.
+#
+# Left undefined, a model collapses the two into one axis and difficulty becomes
+# a copy of bloom_level. They are genuinely independent: a 'remember' question
+# can be hard (an obscure figure buried in a footnote) and an 'apply' question
+# can be easy (substitute two numbers into a formula the text already gives).
+# So this rubric asks about the ANSWER's retrievability and the distractors,
+# never about the kind of thinking involved.
+_DIFFICULTY_TAGGING_RULES = """Tag every question with how hard it is to ANSWER CORRECTLY. Judge it on three
+things only - how directly the answer appears in the source, how many steps are
+needed, and how tempting the wrong options are. Do NOT base difficulty on the
+Bloom level; the two are independent.
+
+- easy:   The answer is stated almost verbatim in the material and is easy to
+          locate. One step. The wrong options are clearly wrong to anyone who
+          read the passage.
+- medium: The answer needs the right passage to be recalled and applied, or two
+          facts to be combined. At least one wrong option is plausible enough to
+          catch a student who skimmed.
+- hard:   The answer requires several steps, an easily-missed detail, or a
+          distinction between two things the material treats similarly. More
+          than one wrong option is genuinely tempting, and a student who half
+          understands will pick one.
+
+Spread the difficulties honestly. Do not label a question 'hard' just because
+the topic is advanced, and do not make a question hard by being vague or
+ambiguous - a hard question is still precisely answerable from the material."""
+
+
 class MCQGenerator:
     """Generates RAG-grounded multiple-choice questions via Google Gemini."""
 
@@ -74,10 +104,30 @@ class MCQGenerator:
         else:
             self.client = genai.Client()
 
+    def generate_adaptive_pool(
+        self,
+        contexts: list[RetrievedParentContext],
+        quiz_config: QuizConfig,
+    ) -> tuple[list[GeneratedQuestion], PoolPlan]:
+        """Generate a pool large enough for any path through the difficulty ladder.
+
+        An adaptive quiz asks ``quiz_config.questionCount`` questions, but which
+        ones depends on how the student answers, so the pool has to cover every
+        path. ``plan_pool`` derives the per-bucket sizes from the ladder rules;
+        see app/services/adaptive.py for why they are what they are.
+        """
+        plan = plan_pool(quiz_config.questionCount)
+        logger.info(
+            "Adaptive pool for a %d-question quiz: easy=%d, medium=%d, hard=%d (%d total)",
+            plan.quiz_length, plan.easy, plan.medium, plan.hard, plan.total,
+        )
+        return self.generate_assessment(contexts, quiz_config, pool_plan=plan), plan
+
     def generate_assessment(
         self,
         contexts: list[RetrievedParentContext],
         quiz_config: QuizConfig,
+        pool_plan: PoolPlan | None = None,
     ) -> list[GeneratedQuestion]:
         """Generate questions grounded strictly in the retrieved contexts.
 
@@ -102,9 +152,27 @@ class MCQGenerator:
         if not contexts:
             raise ValueError("Cannot generate questions: no retrieved context provided.")
 
-        target_count = quiz_config.questionCount
+        # With a pool plan the target is the pool total, not the quiz length:
+        # the quiz asks questionCount questions, but the pool must hold enough
+        # of each difficulty for every path the student could take.
+        target_count = pool_plan.total if pool_plan else quiz_config.questionCount
         if target_count < 1:
             raise ValueError("Target question count must be at least 1.")
+
+        if pool_plan:
+            difficulty_mix_rules = (
+                "=== REQUIRED DIFFICULTY MIX ===\n"
+                f"Of the {target_count} questions, produce EXACTLY:\n"
+                f"- {pool_plan.easy} with difficulty 'easy'\n"
+                f"- {pool_plan.medium} with difficulty 'medium'\n"
+                f"- {pool_plan.hard} with difficulty 'hard'\n"
+                "These counts are a hard requirement, not a guideline. The quiz adapts to\n"
+                "the student, so a shortfall in any one bucket breaks it.\n"
+                "Each question must still be distinct: do not pad a bucket by restating a\n"
+                "question you have already written at another difficulty.\n\n"
+            )
+        else:
+            difficulty_mix_rules = ""
 
         # 1. Assemble context blocks
         context_blocks = []
@@ -160,6 +228,9 @@ class MCQGenerator:
             f"{type_rules}\n\n"
             f"=== COGNITIVE LEVEL TAGGING ===\n"
             f"{_BLOOM_TAGGING_RULES}\n\n"
+            f"=== DIFFICULTY TAGGING ===\n"
+            f"{_DIFFICULTY_TAGGING_RULES}\n\n"
+            f"{difficulty_mix_rules}"
             f"=== STRICT GENERATION CONSTRAINTS ===\n"
             f"1. You MUST generate questions grounded ONLY in the reference context provided below.\n"
             f"2. Do NOT invent information, facts, or assumptions outside the reference context.\n"
@@ -171,6 +242,7 @@ class MCQGenerator:
             f"   - `correct_answer`: correct choice text or array of choices\n"
             f"   - `question_type`: 'single', 'multiple', or 'truefalse'\n"
             f"   - `bloom_level`: one of 'remember', 'understand', 'apply', 'analyze', 'evaluate'\n"
+            f"   - `difficulty`: one of 'easy', 'medium', 'hard'\n"
             f"5. Do NOT include explanations, rationale, or markdown commentary.\n\n"
             f"=== REFERENCE CONTEXT ===\n"
             f"{combined_context}\n"
@@ -201,6 +273,26 @@ class MCQGenerator:
                 logger.error(error_msg)
                 raise ValueError(error_msg)
 
+        # A pooled request can hit the right TOTAL with the wrong mix, which the
+        # count check above cannot see. Verify each bucket and retry once more.
+        if pool_plan:
+            short = self._buckets_short(quiz.questions, pool_plan)
+            if short:
+                logger.warning("Difficulty mix wrong (%s). Retrying once...", short)
+                quiz = self._call_gemini(
+                    f"{prompt}\n\n"
+                    f"CRITICAL ERROR IN PREVIOUS ATTEMPT: the difficulty mix was wrong - {short}. "
+                    f"Produce EXACTLY {pool_plan.easy} easy, {pool_plan.medium} medium and "
+                    f"{pool_plan.hard} hard questions, {target_count} in total."
+                )
+                short = self._buckets_short(quiz.questions, pool_plan)
+                if short:
+                    # Not fatal. A bucket that is over-full is harmless, and the
+                    # quiz engine substitutes the nearest difficulty if one runs
+                    # dry, so a wrong mix degrades adaptivity instead of failing
+                    # a teacher's generation outright.
+                    logger.error("Difficulty mix still wrong after retry (%s) - serving anyway", short)
+
         # Ensure IDs are 1-indexed sequentially
         for idx, q in enumerate(quiz.questions, start=1):
             q.id = idx
@@ -214,7 +306,28 @@ class MCQGenerator:
             ", ".join(f"{lvl}={spread[lvl]}" for lvl in BLOOM_LEVELS if spread[lvl]),
         )
 
+        diff_spread = Counter(q.difficulty for q in quiz.questions)
+        logger.info(
+            "Difficulty distribution: %s",
+            ", ".join(f"{d}={diff_spread[d]}" for d in DIFFICULTIES if diff_spread[d]),
+        )
+
         return quiz.questions
+
+    @staticmethod
+    def _buckets_short(questions: list[GeneratedQuestion], plan: PoolPlan) -> str:
+        """Describe any difficulty bucket with fewer questions than planned.
+
+        Only shortfalls matter. A bucket with extra questions is harmless - the
+        quiz engine simply never reaches them.
+        """
+        have = Counter(q.difficulty for q in questions)
+        gaps = [
+            f"{d}: got {have[d]}, need {plan.count_for(d)}"
+            for d in DIFFICULTIES
+            if have[d] < plan.count_for(d)
+        ]
+        return "; ".join(gaps)
 
     @staticmethod
     def _is_transient_error(exc: Exception) -> bool:

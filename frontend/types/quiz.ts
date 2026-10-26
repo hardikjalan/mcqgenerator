@@ -40,3 +40,56 @@ export type GeneratedQuestion = {
   /** Optional so a response from a backend without tagging still type-checks. */
   bloom_level?: BloomLevel
 }
+
+// ── Taking a quiz ────────────────────────────────────────────────────────────
+// These mirror the response models in backend/app/schemas.py. Note what is NOT
+// here: no correct_answer on a question. The backend serves one question at a
+// time with the key stripped and grades server-side, so the browser never holds
+// the answers — see backend/app/services/quiz_session.py.
+
+export type Difficulty = 'easy' | 'medium' | 'hard'
+
+export type QuizSummary = {
+  id: string
+  subject: string
+  topics: string
+  grade_level: string
+  quiz_length: number
+  created_at: string
+}
+
+export type PublicQuestion = {
+  id: number
+  question: string
+  options: string[]
+  question_type: string
+  difficulty: Difficulty
+  /** 1-based position in the quiz, and how many questions it has. */
+  number: number
+  total: number
+}
+
+/** Returned only AFTER an answer is submitted, so the key is no longer secret. */
+export type AnswerFeedback = {
+  was_correct: boolean
+  correct_answer: string | string[]
+  difficulty: Difficulty
+}
+
+export type SubmitAnswerResponse = {
+  feedback: AnswerFeedback
+  question: PublicQuestion | null
+  finished: boolean
+}
+
+export type AttemptResult = {
+  attempt_id: string
+  quiz_id: string
+  subject: string
+  score: number
+  total: number
+  /** Where the ladder settled — a raw score alone is misleading when the
+      difficulty moved during the quiz. */
+  settled_difficulty: Difficulty
+  breakdown: { difficulty: Difficulty; asked: number; correct: number }[]
+}

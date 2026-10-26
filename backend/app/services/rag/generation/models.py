@@ -9,6 +9,8 @@ from __future__ import annotations
 from typing import Literal, Union, get_args
 from pydantic import BaseModel, Field
 
+from app.services.adaptive import Difficulty
+
 
 # Bloom's revised taxonomy, restricted to the levels a multiple-choice question
 # can honestly test. "Create" is omitted deliberately: it requires the student
@@ -45,6 +47,13 @@ class GeneratedQuestion(BaseModel):
         description=(
             "Bloom's taxonomy level describing the cognitive work the student must "
             "do to answer, not how advanced the subject matter is"
+        )
+    )
+    difficulty: Difficulty = Field(
+        description=(
+            "How hard this question is to answer correctly: how much of the answer is "
+            "stated verbatim in the source, how many steps it takes, and how tempting "
+            "the wrong options are"
         )
     )
 

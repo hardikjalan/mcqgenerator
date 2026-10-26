@@ -10,6 +10,7 @@ the other does not raise anything; the dashboard just renders nothing. Change
 both together.
 """
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -58,10 +59,92 @@ class SourceResult(BaseModel):
     error: str | None = None
 
 
+from app.services.adaptive import Difficulty
 from app.services.rag.generation.models import GeneratedQuestion
 
 
 class GenerateResponse(BaseModel):
     sources: list[SourceResult]
     questions: list[GeneratedQuestion] = []
+    # Set once the pool has been stored, so the teacher's browser can link
+    # straight to the quiz a student would take.
+    quiz_id: str | None = None
+    pool_counts: dict[str, int] | None = None
+
+
+# ── Taking a quiz ─────────────────────────────────────────────────────────────
+
+class QuizSummary(BaseModel):
+    """A quiz as it appears in the student's list. Carries no questions."""
+
+    id: str
+    subject: str
+    topics: str
+    grade_level: str
+    quiz_length: int
+    created_at: datetime
+
+
+class PublicQuestion(BaseModel):
+    """
+    A question as the student is allowed to see it.
+
+    Built field by field from GeneratedQuestion rather than by inheriting and
+    removing, because a subclass that drops `correct_answer` would silently
+    regain it the moment the parent changed. The answer key must never be
+    serialisable to the browser, so the safe shape is an explicit allow-list.
+    """
+
+    id: int
+    question: str
+    options: list[str]
+    question_type: str
+    difficulty: Difficulty
+    # Position in the quiz, 1-based, and how many questions there are in total.
+    number: int
+    total: int
+
+
+class StartAttemptResponse(BaseModel):
+    attempt_id: str
+    quiz_id: str
+    question: PublicQuestion
+
+
+class SubmitAnswerRequest(BaseModel):
+    selected: str | list[str]
+
+
+class AnswerFeedback(BaseModel):
+    """Shown after an answer is submitted, so the key is no longer a secret."""
+
+    was_correct: bool
+    correct_answer: str | list[str]
+    difficulty: Difficulty
+
+
+class SubmitAnswerResponse(BaseModel):
+    feedback: AnswerFeedback
+    # The next question, or None when the attempt is over.
+    question: PublicQuestion | None = None
+    finished: bool = False
+
+
+class AttemptResultBreakdown(BaseModel):
+    difficulty: Difficulty
+    asked: int
+    correct: int
+
+
+class AttemptResult(BaseModel):
+    attempt_id: str
+    quiz_id: str
+    subject: str
+    score: int
+    total: int
+    # Where the ladder settled. With adaptive difficulty a raw score is
+    # misleading on its own - 8/10 at 'hard' is not 8/10 at 'easy' - so the
+    # level the student ended on is reported alongside it.
+    settled_difficulty: Difficulty
+    breakdown: list[AttemptResultBreakdown]
 

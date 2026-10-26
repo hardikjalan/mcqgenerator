@@ -1,7 +1,7 @@
 // Assessment option lists shown in the builder UI.
 // Types live in @/types/quiz
 
-import type { BloomLevel, QuestionType } from '@/types/quiz'
+import type { BloomLevel, Difficulty, QuestionType } from '@/types/quiz'
 
 export const QUESTION_COUNTS = [5, 10, 15, 20]
 
@@ -30,3 +30,16 @@ export const BLOOM_LEVELS: { key: BloomLevel; label: string; higherOrder: boolea
 export const BLOOM_BY_KEY = Object.fromEntries(
   BLOOM_LEVELS.map(l => [l.key, l]),
 ) as Record<BloomLevel, (typeof BLOOM_LEVELS)[number]>
+
+// Difficulty labels and badge styling, ascending. Same two-tier colour approach
+// as BLOOM_LEVELS: tokens only, and never the red/green reserved for right and
+// wrong answers — a 'hard' question is not a wrong one.
+export const DIFFICULTIES: { key: Difficulty; label: string; badge: string }[] = [
+  { key: 'easy',   label: 'Easy',   badge: 'bg-surface-2 text-text-2 border-border-subtle' },
+  { key: 'medium', label: 'Medium', badge: 'bg-surface-2 text-text border-border-strong' },
+  { key: 'hard',   label: 'Hard',   badge: 'bg-accent-soft text-accent border-accent-line' },
+]
+
+export const DIFFICULTY_BY_KEY = Object.fromEntries(
+  DIFFICULTIES.map(d => [d.key, d]),
+) as Record<Difficulty, (typeof DIFFICULTIES)[number]>
