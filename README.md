@@ -70,7 +70,7 @@ cd backend
 .venv/Scripts/python.exe -m unittest discover -p 'test_*.py'
 ```
 
-From `frontend`, run `npx tsc --noEmit`, `npx eslint` and `npm run build`.
+From `frontend`, run `npm test`, `npx tsc --noEmit`, `npx eslint` and `npm run build`.
 Stop `next dev` before a production build because they share `.next`.
 
 The opt-in live integration test requires a running local API and real service

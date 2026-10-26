@@ -24,6 +24,9 @@ requests, and label mastery as a Bayesian estimate rather than a measured fact.
 
 - 40 backend unit tests passed.
 - TypeScript, ESLint and the production Next.js build passed.
+- Five frontend onboarding regressions cover stalled sessions, request timeouts,
+  plain-object errors, unexpected roles and deadline cleanup. Live JavaScript
+  onboarding verified role assignment, retry safety and Google-name preservation.
 - The complete checked-in database upgrade applied successfully, including a repeat run.
 - Live PDF upload, extraction, 768-dimensional embeddings, atomic indexing,
   retrieval, evidence validation, independent semantic/Bloom review, draft save

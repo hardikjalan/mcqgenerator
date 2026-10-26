@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { ArrowRight, Check, GraduationCap, Presentation } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { completeOnboarding } from '@/lib/onboarding'
 import type { OnboardingRole } from '@/types/database'
 import { Wordmark } from '@/components/ui/Logo'
 import { Button } from '@/components/ui/Button'
@@ -15,21 +15,17 @@ const ROLES: { key: OnboardingRole; label: string; blurb: string; Icon: typeof G
 ]
 
 export default function OnboardingPage() {
-  const router = useRouter()
   const [selected, setSelected] = useState<OnboardingRole | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [googleName, setGoogleName] = useState('')
-
-  // Grab the name from Google so we can store it via the RPC
-  useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => {
-      setGoogleName(data.user?.user_metadata?.full_name ?? '')
-    })
-  }, [])
+  const [dashboardPath, setDashboardPath] = useState<string | null>(null)
 
   const handleConfirm = async () => {
     if (!selected || isSubmitting) return
+    if (dashboardPath) {
+      window.location.replace(dashboardPath)
+      return
+    }
     setIsSubmitting(true)
     setError(null)
 
@@ -39,22 +35,23 @@ export default function OnboardingPage() {
       // version returned nothing, so a save that matched zero rows looked
       // identical to a real one — and the proxy then bounced the user
       // straight back here, with nothing on screen to explain why.
-      const { data: savedRole, error: rpcError } = await supabase.rpc('set_profile_role', {
+      const savedRole = await completeOnboarding(signal => supabase.rpc('set_profile_role', {
         p_role: selected,
-        p_full_name: googleName,
+        // The RPC reads the Google name from auth.users when this is empty.
+        p_full_name: '',
         p_institution: '',
-      })
-      if (rpcError) throw rpcError
-      if (!savedRole) {
-        throw new Error('Your role didn’t save. Please try again, or contact support if it keeps happening.')
-      }
+      }).abortSignal(signal))
 
       // Follow the stored role rather than the clicked one — if a role was
       // already set, that's where the proxy will send us anyway.
-      router.push(`/dashboard/${savedRole}`)
+      const path = `/dashboard/${savedRole}`
+      setDashboardPath(path)
+      // A fresh request makes the proxy read the newly stored database role.
+      window.location.replace(path)
     } catch (err: unknown) {
       console.error('Role assignment failed:', err)
       setError(err instanceof Error ? err.message : 'That didn’t save. Please try again.')
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -72,7 +69,7 @@ export default function OnboardingPage() {
               How will you use Cognira?
             </h1>
             <p className="text-sm text-text-2">
-              This sets up your account. You can’t change it later, so pick carefully.
+              Choose how you will use Cognira. An administrator can help if your role needs to change later.
             </p>
           </div>
 
@@ -90,7 +87,7 @@ export default function OnboardingPage() {
                   role="radio"
                   aria-checked={active}
                   onClick={() => setSelected(key)}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || dashboardPath !== null}
                   className={[
                     'group relative flex flex-col items-start gap-3 p-4 rounded-lg border text-left',
                     'transition-colors duration-150 cursor-pointer disabled:opacity-50',
@@ -126,6 +123,7 @@ export default function OnboardingPage() {
           </div>
 
           {error && <Alert tone="error">{error}</Alert>}
+          {dashboardPath && <Alert tone="success">Your account is ready. <a className="underline" href={dashboardPath}>Open your dashboard</a>.</Alert>}
 
           <Button
             id="confirm-role"
@@ -137,6 +135,8 @@ export default function OnboardingPage() {
           >
             {isSubmitting
               ? 'Setting up your account…'
+              : dashboardPath
+              ? 'Open dashboard'
               : selected
               ? `Continue as ${selected === 'faculty' ? 'a teacher' : 'a student'}`
               : 'Pick one to continue'}
